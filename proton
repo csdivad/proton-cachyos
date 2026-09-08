@@ -48,6 +48,50 @@ CURRENT_PREFIX_VERSION="CachyOS-11.0-100"
 PFX="Proton: "
 ld_path_var = "LD_LIBRARY_PATH"
 
+# https://bugs.kde.org/show_bug.cgi?id=524702
+# Ark can omit empty directory entries when extracting Proton tarballs. Keep
+# fresh prefixes valid even when their extracted default_pfx lost Wine's shell
+# directory skeleton.
+STANDARD_PREFIX_DIRECTORIES = (
+    "drive_c/ProgramData/Microsoft/Windows/Start Menu/Programs/Administrative Tools",
+    "drive_c/ProgramData/Microsoft/Windows/Start Menu/Programs/StartUp",
+    "drive_c/ProgramData/Microsoft/Windows/Templates",
+    "drive_c/users/Public/Desktop",
+    "drive_c/users/Public/Documents",
+    "drive_c/users/Public/Music",
+    "drive_c/users/Public/Pictures",
+    "drive_c/users/Public/Videos",
+    "drive_c/users/steamuser/AppData/Local/Microsoft/Windows/History",
+    "drive_c/users/steamuser/AppData/Local/Microsoft/Windows/INetCache",
+    "drive_c/users/steamuser/AppData/Local/Microsoft/Windows/INetCookies",
+    "drive_c/users/steamuser/AppData/Local/Temp",
+    "drive_c/users/steamuser/AppData/LocalLow",
+    "drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/AccountPictures",
+    "drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Network Shortcuts",
+    "drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Printer Shortcuts",
+    "drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Recent",
+    "drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/SendTo",
+    "drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Administrative Tools",
+    "drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/StartUp",
+    "drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Templates",
+    "drive_c/users/steamuser/AppData/Roaming/Microsoft/Windows/Themes",
+    "drive_c/users/steamuser/Contacts",
+    "drive_c/users/steamuser/Desktop",
+    "drive_c/users/steamuser/Documents/Downloads",
+    "drive_c/users/steamuser/Documents/Music",
+    "drive_c/users/steamuser/Documents/Pictures",
+    "drive_c/users/steamuser/Documents/Templates",
+    "drive_c/users/steamuser/Documents/Videos",
+    "drive_c/users/steamuser/Downloads",
+    "drive_c/users/steamuser/Favorites",
+    "drive_c/users/steamuser/Links",
+    "drive_c/users/steamuser/Music",
+    "drive_c/users/steamuser/Pictures/Screenshots",
+    "drive_c/users/steamuser/Saved Games",
+    "drive_c/users/steamuser/Searches",
+    "drive_c/users/steamuser/Videos",
+)
+
 def file_exists(s, *, follow_symlinks):
     if follow_symlinks:
         #'exists' returns False on broken symlinks
@@ -852,6 +896,19 @@ class CompatData:
                     if not file_exists(dst_file, follow_symlinks=True):
                         self.pfx_copy(src_file, dst_file)
                         tracked_files.write(rel_dir + file_ + "\n")
+
+            created_dirs = []
+            for rel_dir in STANDARD_PREFIX_DIRECTORIES:
+                dst_dir = self.prefix_dir.rstrip('/')
+                for component in rel_dir.split('/'):
+                    dst_dir = os.path.join(dst_dir, component)
+                    if not file_exists(dst_dir, follow_symlinks=True):
+                        makedirs(dst_dir)
+                        created_dirs.append(os.path.relpath(dst_dir, self.prefix_dir))
+
+            # Track children before parents so prefix upgrades can remove them.
+            for rel_dir in reversed(created_dirs):
+                tracked_files.write(rel_dir + "/\n")
         # Set .update-timestamp so Wine doesn't try to update the prefix.
         # This is needed in case the mtime of wine.inf has changed in distribution.
         with open(os.path.join(self.prefix_dir, '.update-timestamp'), 'w') as update_timestamp:
@@ -1876,6 +1933,8 @@ class Session:
         self.check_environment("PROTON_VKD3D_LOWLATENCY", "vkd3dlowlatency")
         self.check_environment("PROTON_NO_ESYNC", "noesync")
         self.check_environment("PROTON_NO_FSYNC", "nofsync")
+        self.check_environment("PROTON_NO_NTSYNC", "nontsync")
+        self.check_environment("PROTON_USE_WRITECOPY", "writecopy")
         self.check_environment("PROTON_FORCE_LARGE_ADDRESS_AWARE", "forcelgadd")
         self.check_environment("PROTON_OLD_GL_STRING", "oldglstr")
         self.check_environment("PROTON_HIDE_NVIDIA_GPU", "hidenvgpu")
@@ -1911,6 +1970,11 @@ class Session:
             self.env["WINEESYNC"] = "0"
         else:
             self.env["WINEESYNC"] = "1"
+
+        if "nontsync" in self.compat_config:
+            self.env["PROTON_NO_NTSYNC"] = "1"
+        else:
+            self.env.pop("PROTON_NO_NTSYNC", "")
 
         if "mediaconv" in self.compat_config:
             self.env["PROTON_VIDEO_CONVERT"] = "1"
