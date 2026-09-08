@@ -1,33 +1,5 @@
-From e44ce1b0db0b8baa39a3c0ffcfec1acb7dc8120c Mon Sep 17 00:00:00 2001
-From: Stelios Tsampas <loathingkernel@gmail.com>
-Date: Tue, 23 Jun 2026 12:40:43 +0300
-Subject: [PATCH 2/3] upscalers: add optiscaler downloader
-
-Config values are passed through the `PROTON_OPTISCALER_CONFIG` environment
-variable. The config is a semicolon (`;`) separated string of individual options.
-For each option the template is `{header}.{option}={value}`, i.e to set the following
-```
-[Upscalers]
-Dx11Upscaler=fsr31
-Dx12Upscaler=dlss
-```
-the config should be
-```
-PROTON_OPTISCALER_CONFIG="Upscalers.Dx11Upscaler=fsr31;Upscalers.Dx12Upscaler=dlss"`
-```
-
-To avoid mistakes, config options should already exist in `Optiscaler.ini`.
-
-The changes are to the config are permanent, it has to be either manually edited or
-a different config should be applied through the env variable.
-
-Using this will also remove any comments from the `OptiScaler.ini` file.
----
- upscalers.py | 211 ++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 207 insertions(+), 4 deletions(-)
-
 diff --git a/upscalers.py b/upscalers.py
-index ac0ac44..c827882 100644
+index ac0ac44..6f83cca 100644
 --- a/upscalers.py
 +++ b/upscalers.py
 @@ -1,9 +1,11 @@
@@ -264,14 +236,15 @@ index ac0ac44..c827882 100644
  def get_version(env: dict, key: str, fallback: str) -> str:
      return env[key] if env.get(key, '0') not in {'0', '1'} else fallback
  
-@@ -436,17 +627,18 @@ def setup_upscalers(
- 
-     fsr4_version = get_version(env, 'PROTON_FSR4_UPGRADE', 'default')
- 
-+    optiscaler_version = get_version(env, 'PROTON_USE_OPTISCALER', 'default')
+@@ -439,14 +630,19 @@ def setup_upscalers(
      ffx3_version = get_version(env, 'PROTON_FFX3_UPGRADE', '1.0.1.41314')
      ffx4_version = get_version(env, 'PROTON_FFX4_UPGRADE', 'default')
  
++    optiscaler_version = get_version(env, 'PROTON_USE_OPTISCALER', 'default')
++    # if optiscaler is enabled, control ffx4_version through fsr4_version unless explicitly set
++    if 'optiscaler' in compat_config and 'fsr4' in compat_config and 'ffx4' not in compat_config:
++        ffx4_version = fsr4_version
++
      upscaler_replace = set()
      upscalers = (
 -        ('dlss', dlss_version, 'dlss' in compat_config),
@@ -287,7 +260,7 @@ index ac0ac44..c827882 100644
          ('ffx4', ffx4_version, 'ffx4' in compat_config),
      )
      for upscaler in upscalers:
-@@ -455,6 +647,17 @@ def setup_upscalers(
+@@ -455,6 +651,17 @@ def setup_upscalers(
              log.info(f'Automatic {name.upper()} upgrade enabled.')
              upscaler_replace.add(name)
  
@@ -295,16 +268,13 @@ index ac0ac44..c827882 100644
 +        if setup_optiscaler(env, compat_dir, prefix_dir, optiscaler_version):
 +            log.info('OptiScaler enabled.')
 +            if 'fsr4' in compat_config:
-+                if fsr4_version in {'4.0.0', '4.0.1', 'default'}:
-+                    setup_upscaler('ffx3', compat_dir, prefix_dir, ffx3_version)
++                if ffx4_version in {'4.0.0', '4.0.1'}:
++                    clean_upscaler('ffx4', compat_dir, prefix_dir)
 +                else:
-+                    setup_upscaler('ffx4', compat_dir, prefix_dir, fsr4_version)
++                    setup_upscaler('ffx4', compat_dir, prefix_dir, ffx4_version)
 +            env['WINE_OPTISCALER_NAME'] = env.get('PROTON_OPTISCALER_NAME', 'dxgi.dll')
 +            upscaler_replace.clear()
 +
      if 'fsr4' in upscaler_replace:
          pass
  
--- 
-2.55.0
-
