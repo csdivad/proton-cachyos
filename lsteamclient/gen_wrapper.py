@@ -1248,9 +1248,12 @@ def handle_method_c(klass, method, winclassname, out):
     if is_steaminput:
         if method.name == "Init":
             if session_config_method:
-                out(f'    STEAMCLIENT_CALL( {session_config_method.full_name}, &config_params );\n')
-                out(u'    steaminput_xinput_set_native_configuration( config_params._ret );\n')
-                out(u'    if (steaminput_xinput_fallback_active()) params._ret = TRUE;\n')
+                out(u'    if (steaminput_xinput_fallback_configured())\n')
+                out(u'    {\n')
+                out(f'        STEAMCLIENT_CALL( {session_config_method.full_name}, &config_params );\n')
+                out(u'        steaminput_xinput_set_native_configuration( config_params._ret );\n')
+                out(u'        if (steaminput_xinput_fallback_active()) params._ret = TRUE;\n')
+                out(u'    }\n')
             else:
                 out(u'    if (steaminput_xinput_fallback_configured()) params._ret = TRUE;\n')
         elif method.name == "GetConnectedControllers":

@@ -274,6 +274,8 @@ uint16_t steaminput_xinput_get_session_configuration(uint16_t native_configurati
     unsigned int index;
     XINPUT_STATE state;
 
+    if (!steaminput_xinput_fallback_configured()) return native_configuration;
+
     steaminput_xinput_set_native_configuration(native_configuration);
     if (native_configuration || !steaminput_xinput_fallback_active())
         return native_configuration;

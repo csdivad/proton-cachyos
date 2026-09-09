@@ -1104,9 +1104,12 @@ int8_t __thiscall winISteamInput_SteamInput005_Init(struct w_iface *_this, int8_
     };
     TRACE("%p\n", _this);
     STEAMCLIENT_CALL( ISteamInput_SteamInput005_Init, &params );
-    STEAMCLIENT_CALL( ISteamInput_SteamInput005_GetSessionInputConfigurationSettings, &config_params );
-    steaminput_xinput_set_native_configuration( config_params._ret );
-    if (steaminput_xinput_fallback_active()) params._ret = TRUE;
+    if (steaminput_xinput_fallback_configured())
+    {
+        STEAMCLIENT_CALL( ISteamInput_SteamInput005_GetSessionInputConfigurationSettings, &config_params );
+        steaminput_xinput_set_native_configuration( config_params._ret );
+        if (steaminput_xinput_fallback_active()) params._ret = TRUE;
+    }
     return params._ret;
 }
 
@@ -1784,9 +1787,12 @@ int8_t __thiscall winISteamInput_SteamInput006_Init(struct w_iface *_this, int8_
     };
     TRACE("%p\n", _this);
     STEAMCLIENT_CALL( ISteamInput_SteamInput006_Init, &params );
-    STEAMCLIENT_CALL( ISteamInput_SteamInput006_GetSessionInputConfigurationSettings, &config_params );
-    steaminput_xinput_set_native_configuration( config_params._ret );
-    if (steaminput_xinput_fallback_active()) params._ret = TRUE;
+    if (steaminput_xinput_fallback_configured())
+    {
+        STEAMCLIENT_CALL( ISteamInput_SteamInput006_GetSessionInputConfigurationSettings, &config_params );
+        steaminput_xinput_set_native_configuration( config_params._ret );
+        if (steaminput_xinput_fallback_active()) params._ret = TRUE;
+    }
     return params._ret;
 }
 
@@ -2477,9 +2483,12 @@ int8_t __thiscall winISteamInput_SteamInput007_Init(struct w_iface *_this, int8_
     };
     TRACE("%p\n", _this);
     STEAMCLIENT_CALL( ISteamInput_SteamInput007_Init, &params );
-    STEAMCLIENT_CALL( ISteamInput_SteamInput007_GetSessionInputConfigurationSettings, &config_params );
-    steaminput_xinput_set_native_configuration( config_params._ret );
-    if (steaminput_xinput_fallback_active()) params._ret = TRUE;
+    if (steaminput_xinput_fallback_configured())
+    {
+        STEAMCLIENT_CALL( ISteamInput_SteamInput007_GetSessionInputConfigurationSettings, &config_params );
+        steaminput_xinput_set_native_configuration( config_params._ret );
+        if (steaminput_xinput_fallback_active()) params._ret = TRUE;
+    }
     return params._ret;
 }
 
