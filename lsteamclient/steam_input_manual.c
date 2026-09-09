@@ -8,9 +8,17 @@
 WINE_DEFAULT_DEBUG_CHANNEL(steamclient);
 
 #define XINPUT_STEAM_HANDLE_BASE UINT64_C(0x474558494e500100)
+#define XINPUT_STEAM_HANDLE_TYPE_SHIFT 8
+#define XINPUT_STEAM_HANDLE_VALUE_MASK UINT64_C(0xffff)
 #define XINPUT_ACTION_SET_BASE UINT64_C(0x4745585345540000)
 #define XINPUT_DIGITAL_ACTION_BASE UINT64_C(0x4745584449470000)
 #define XINPUT_ANALOG_ACTION_BASE UINT64_C(0x474558414e410000)
+
+#define SONY_DUALSHOCK4_PRODUCT_ID 0x05c4
+#define SONY_DUALSHOCK4_V2_PRODUCT_ID 0x09cc
+#define SONY_DUALSHOCK4_ADAPTER_PRODUCT_ID 0x0ba0
+#define SONY_DUALSENSE_PRODUCT_ID 0x0ce6
+#define SONY_DUALSENSE_EDGE_PRODUCT_ID 0x0df2
 
 enum steam_input_source_mode
 {
@@ -172,27 +180,81 @@ int steaminput_xinput_fallback_enabled(void)
             env_enabled("PROTON_STEAMINPUT_XINPUT_FALLBACK");
 }
 
-static uint32_t steaminput_xinput_fallback_type(void)
+typedef DWORD (WINAPI *xinput_get_sony_product_id_func)(DWORD index, WORD *product_id);
+
+static xinput_get_sony_product_id_func xinput_get_sony_product_id;
+
+static BOOL CALLBACK init_xinput_get_sony_product_id(INIT_ONCE *once, void *param, void **context)
 {
+    HMODULE module = GetModuleHandleW(L"xinput1_3.dll");
+
+    if (module)
+        xinput_get_sony_product_id = (void *)GetProcAddress(module, "__wine_XInputGetSonyProductId");
+    return TRUE;
+}
+
+static WORD steaminput_xinput_sony_product_id(unsigned int index)
+{
+    static INIT_ONCE init_once = INIT_ONCE_STATIC_INIT;
+    WORD product_id = 0;
+
+    InitOnceExecuteOnce(&init_once, init_xinput_get_sony_product_id, NULL, NULL);
+    if (xinput_get_sony_product_id)
+        xinput_get_sony_product_id(index, &product_id);
+    return product_id;
+}
+
+static uint32_t steaminput_xinput_fallback_type(unsigned int index)
+{
+    WORD product_id;
+
     if (env_enabled("PROTON_STEAMINPUT_LAYOUT_DS5")) return STEAM_INPUT_TYPE_PS5;
     if (env_enabled("PROTON_STEAMINPUT_LAYOUT_DS4")) return STEAM_INPUT_TYPE_PS4;
     if (env_enabled("PROTON_STEAMINPUT_LAYOUT_XBOX")) return STEAM_INPUT_TYPE_XBOX_ONE;
+
+    product_id = steaminput_xinput_sony_product_id(index);
+    if (product_id == SONY_DUALSENSE_PRODUCT_ID || product_id == SONY_DUALSENSE_EDGE_PRODUCT_ID)
+    {
+        if (env_enabled("PROTON_SONY_DUALSENSE_AS_DUALSHOCK4")) return STEAM_INPUT_TYPE_PS4;
+        return STEAM_INPUT_TYPE_PS5;
+    }
+    if (product_id == SONY_DUALSHOCK4_PRODUCT_ID || product_id == SONY_DUALSHOCK4_V2_PRODUCT_ID ||
+            product_id == SONY_DUALSHOCK4_ADAPTER_PRODUCT_ID)
+        return STEAM_INPUT_TYPE_PS4;
     return STEAM_INPUT_TYPE_XBOX_ONE;
 }
 
-static uint64_t xinput_steam_handle(unsigned int index)
+static uint64_t xinput_steam_handle(unsigned int index, uint32_t type)
 {
-    return XINPUT_STEAM_HANDLE_BASE + index;
+    return XINPUT_STEAM_HANDLE_BASE + index +
+            ((uint64_t)type << XINPUT_STEAM_HANDLE_TYPE_SHIFT);
 }
 
 static int xinput_index_from_steam_handle(uint64_t handle)
 {
-    uint64_t index;
+    uint64_t index, value;
 
     if (handle < XINPUT_STEAM_HANDLE_BASE) return -1;
-    index = handle - XINPUT_STEAM_HANDLE_BASE;
+    value = handle - XINPUT_STEAM_HANDLE_BASE;
+    if (value & ~XINPUT_STEAM_HANDLE_VALUE_MASK) return -1;
+    index = value & ((UINT64_C(1) << XINPUT_STEAM_HANDLE_TYPE_SHIFT) - 1);
     if (index >= XUSER_MAX_COUNT) return -1;
     return (int)index;
+}
+
+static uint32_t xinput_type_from_steam_handle(uint64_t handle)
+{
+    uint64_t value;
+    uint32_t type;
+
+    if (handle < XINPUT_STEAM_HANDLE_BASE) return 0;
+    value = handle - XINPUT_STEAM_HANDLE_BASE;
+    if (value & ~XINPUT_STEAM_HANDLE_VALUE_MASK) return 0;
+    type = value >> XINPUT_STEAM_HANDLE_TYPE_SHIFT;
+    if (type == STEAM_INPUT_TYPE_XBOX_ONE || type == STEAM_INPUT_TYPE_PS4 ||
+            type == STEAM_INPUT_TYPE_PS5)
+        return type;
+    return 0;
 }
 
 static float normalize_thumb(SHORT value)
@@ -203,6 +265,8 @@ static float normalize_thumb(SHORT value)
 int32_t steaminput006_xinput_get_connected_controllers(int32_t native_count, uint64_t *handles)
 {
     static unsigned int previous_mask = ~0u;
+    static uint32_t previous_types[XUSER_MAX_COUNT];
+    uint32_t current_types[XUSER_MAX_COUNT] = {0};
     unsigned int index, count = 0, mask = 0;
     XINPUT_STATE state;
 
@@ -211,15 +275,18 @@ int32_t steaminput006_xinput_get_connected_controllers(int32_t native_count, uin
     for (index = 0; index < XUSER_MAX_COUNT; ++index)
     {
         if (XInputGetState(index, &state) != ERROR_SUCCESS) continue;
-        handles[count++] = xinput_steam_handle(index);
+        current_types[index] = steaminput_xinput_fallback_type(index);
+        handles[count++] = xinput_steam_handle(index, current_types[index]);
         mask |= 1u << index;
     }
 
-    if (mask != previous_mask)
+    if (mask != previous_mask || memcmp(current_types, previous_types, sizeof(current_types)))
     {
-        TRACE("Steam Input XInput fallback replacing %d native controllers with mask %#x.\n",
-                native_count, mask);
+        TRACE("Steam Input XInput fallback replacing %d native controllers with mask %#x, "
+                "types %u/%u/%u/%u.\n", native_count, mask, current_types[0], current_types[1],
+                current_types[2], current_types[3]);
         previous_mask = mask;
+        memcpy(previous_types, current_types, sizeof(previous_types));
     }
 
     return (int32_t)count;
@@ -418,10 +485,14 @@ int steaminput006_xinput_trigger_vibration_extended(uint64_t input_handle, uint1
 
 int steaminput006_xinput_get_input_type(uint32_t *type, uint64_t input_handle)
 {
-    if (!steaminput_xinput_fallback_enabled() || xinput_index_from_steam_handle(input_handle) < 0)
-        return FALSE;
+    int index;
+    uint32_t handle_type;
 
-    *type = steaminput_xinput_fallback_type();
+    if (!steaminput_xinput_fallback_enabled() ||
+            (index = xinput_index_from_steam_handle(input_handle)) < 0) return FALSE;
+
+    handle_type = xinput_type_from_steam_handle(input_handle);
+    *type = handle_type ? handle_type : steaminput_xinput_fallback_type(index);
     return TRUE;
 }
 
@@ -433,7 +504,7 @@ int steaminput006_xinput_get_controller_for_gamepad_index(uint64_t *handle, int3
         XInputGetState(index, &state) != ERROR_SUCCESS)
         return FALSE;
 
-    *handle = xinput_steam_handle(index);
+    *handle = xinput_steam_handle(index, steaminput_xinput_fallback_type(index));
     return TRUE;
 }
 
