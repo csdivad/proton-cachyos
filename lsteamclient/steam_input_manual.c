@@ -190,6 +190,7 @@ enum steaminput_xinput_fallback_mode
 };
 
 static LONG steaminput_xinput_fallback_mode;
+static LONG steaminput_native_session_seen;
 
 int steaminput_xinput_fallback_configured(void)
 {
@@ -255,16 +256,31 @@ static BOOL steaminput_xinput_native_virtual_present(void)
 
 static void steaminput_xinput_refresh_mode(const char *reason)
 {
-    if (!steaminput_xinput_fallback_configured() || steaminput_xinput_native_virtual_present())
+    BOOL native_virtual_present;
+
+    if (!steaminput_xinput_fallback_configured() ||
+            InterlockedCompareExchange(&steaminput_native_session_seen, 0, 0))
+    {
+        steaminput_xinput_set_fallback_mode(STEAMINPUT_FALLBACK_NATIVE, reason);
+        return;
+    }
+
+    native_virtual_present = steaminput_xinput_native_virtual_present();
+    if (native_virtual_present)
+        InterlockedExchange(&steaminput_native_session_seen, TRUE);
+
+    if (native_virtual_present)
         steaminput_xinput_set_fallback_mode(STEAMINPUT_FALLBACK_NATIVE, reason);
     else
         steaminput_xinput_set_fallback_mode(STEAMINPUT_FALLBACK_XINPUT, reason);
 }
 
-void steaminput_xinput_set_native_configuration(uint16_t native_configuration)
+void steaminput_xinput_set_native_configuration(uint16_t native_configuration, int32_t native_count)
 {
-    TRACE("native Steam Input configuration mask %#x.\n", native_configuration);
-    steaminput_xinput_refresh_mode("live Steam virtual controller probe");
+    TRACE("native Steam Input configuration mask %#x, controllers %d.\n",
+            native_configuration, native_count);
+    if (native_count > 0) InterlockedExchange(&steaminput_native_session_seen, TRUE);
+    steaminput_xinput_refresh_mode("native Steam controller probe");
 }
 
 static WORD steaminput_xinput_sony_product_id(unsigned int index)
@@ -381,6 +397,7 @@ int32_t steaminput006_xinput_get_connected_controllers(int32_t native_count, uin
 
     if (!steaminput_xinput_fallback_configured() || !handles) return native_count;
 
+    if (native_count > 0) InterlockedExchange(&steaminput_native_session_seen, TRUE);
     steaminput_xinput_refresh_mode("controller enumeration");
     if (InterlockedCompareExchange(&steaminput_xinput_fallback_mode, 0, 0) ==
             STEAMINPUT_FALLBACK_NATIVE)

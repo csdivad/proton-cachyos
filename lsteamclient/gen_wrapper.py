@@ -1178,10 +1178,13 @@ def handle_method_c(klass, method, winclassname, out):
     returns_record = method.result_type.get_canonical().kind == TypeKind.RECORD
     is_steaminput = klass.full_name.startswith("ISteamInput_SteamInput")
     session_config_method = None
+    connected_controllers_method = None
 
     if is_steaminput and method.name == "Init":
         session_config_method = next((candidate for candidate in klass.methods
                 if candidate.name == "GetSessionInputConfigurationSettings"), None)
+        connected_controllers_method = next((candidate for candidate in klass.methods
+                if candidate.name == "GetConnectedControllers"), None)
 
     ret = "*" if returns_record else ""
     ret = f'{declspec(method.result_type, ret, "w_")} '
@@ -1210,6 +1213,14 @@ def handle_method_c(klass, method, winclassname, out):
         out(f'    struct {session_config_method.full_name}_params config_params =\n')
         out(u'    {\n')
         out(u'        .u_iface = _this->u_iface,\n')
+        out(u'    };\n')
+
+    if connected_controllers_method:
+        out(u'    uint64_t native_handles[16] = {0};\n')
+        out(f'    struct {connected_controllers_method.full_name}_params controller_params =\n')
+        out(u'    {\n')
+        out(u'        .u_iface = _this->u_iface,\n')
+        out(u'        .handlesOut = native_handles,\n')
         out(u'    };\n')
 
     out(u'    TRACE("%p\\n", _this);\n')
@@ -1247,11 +1258,15 @@ def handle_method_c(klass, method, winclassname, out):
     out(f'    STEAMCLIENT_CALL( {method.full_name}, &params );\n')
     if is_steaminput:
         if method.name == "Init":
-            if session_config_method:
+            if connected_controllers_method:
                 out(u'    if (steaminput_xinput_fallback_configured())\n')
                 out(u'    {\n')
-                out(f'        STEAMCLIENT_CALL( {session_config_method.full_name}, &config_params );\n')
-                out(u'        steaminput_xinput_set_native_configuration( config_params._ret );\n')
+                out(f'        STEAMCLIENT_CALL( {connected_controllers_method.full_name}, &controller_params );\n')
+                if session_config_method:
+                    out(f'        STEAMCLIENT_CALL( {session_config_method.full_name}, &config_params );\n')
+                    out(u'        steaminput_xinput_set_native_configuration( config_params._ret, controller_params._ret );\n')
+                else:
+                    out(u'        steaminput_xinput_set_native_configuration( 0, controller_params._ret );\n')
                 out(u'        if (steaminput_xinput_fallback_active()) params._ret = TRUE;\n')
                 out(u'    }\n')
             else:

@@ -49,7 +49,7 @@ void init_rtti( char *base );
 
 int steaminput_xinput_fallback_configured(void);
 int steaminput_xinput_fallback_active(void);
-void steaminput_xinput_set_native_configuration( uint16_t native_configuration );
+void steaminput_xinput_set_native_configuration( uint16_t native_configuration, int32_t native_count );
 uint16_t steaminput_xinput_get_session_configuration( uint16_t native_configuration );
 int32_t steaminput006_xinput_get_connected_controllers( int32_t native_count, uint64_t *handles );
 uint64_t steaminput006_xinput_register_action_set( uint64_t native_handle, const char *name );
