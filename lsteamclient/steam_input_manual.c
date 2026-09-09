@@ -8,6 +8,7 @@
 WINE_DEFAULT_DEBUG_CHANNEL(steamclient);
 
 #define XINPUT_STEAM_HANDLE_BASE UINT64_C(0x474558494e500100)
+#define XINPUT_ACTION_SET_BASE UINT64_C(0x4745585345540000)
 #define XINPUT_DIGITAL_ACTION_BASE UINT64_C(0x4745584449470000)
 #define XINPUT_ANALOG_ACTION_BASE UINT64_C(0x474558414e410000)
 
@@ -20,12 +21,23 @@ enum steam_input_source_mode
 enum steam_input_type
 {
     STEAM_INPUT_TYPE_XBOX_ONE = 3,
+    STEAM_INPUT_TYPE_PS4 = 5,
+    STEAM_INPUT_TYPE_PS5 = 13,
+};
+
+enum xinput_digital_source
+{
+    XINPUT_DIGITAL_BUTTON,
+    XINPUT_DIGITAL_LEFT_TRIGGER,
+    XINPUT_DIGITAL_RIGHT_TRIGGER,
+    XINPUT_DIGITAL_UNAVAILABLE,
 };
 
 struct xinput_digital_action
 {
     const char *name;
     uint64_t handle;
+    enum xinput_digital_source source;
     WORD buttons;
 };
 
@@ -43,24 +55,81 @@ struct xinput_analog_action
     } source;
 };
 
-/* Monster Hunter Wilds uses these action names from its Xbox One action manifest. */
+#define DIGITAL_BUTTON(name, button) {name, 0, XINPUT_DIGITAL_BUTTON, button}
+#define DIGITAL_TRIGGER(name, trigger) {name, 0, trigger, 0}
+#define DIGITAL_UNAVAILABLE(name) {name, 0, XINPUT_DIGITAL_UNAVAILABLE, 0}
+
+/* Action aliases used by the supported Steam Input manifests. */
 static struct xinput_digital_action xinput_digital_actions[] =
 {
-    {"LUp",         0, XINPUT_GAMEPAD_DPAD_UP},
-    {"LDown",       0, XINPUT_GAMEPAD_DPAD_DOWN},
-    {"LLeft",       0, XINPUT_GAMEPAD_DPAD_LEFT},
-    {"LRight",      0, XINPUT_GAMEPAD_DPAD_RIGHT},
-    {"RUp",         0, XINPUT_GAMEPAD_Y},
-    {"RDown",       0, XINPUT_GAMEPAD_A},
-    {"RLeft",       0, XINPUT_GAMEPAD_X},
-    {"RRight",      0, XINPUT_GAMEPAD_B},
-    {"CLeft",       0, XINPUT_GAMEPAD_BACK},
-    {"CRight",      0, XINPUT_GAMEPAD_START},
-    {"CCenter",     0, 0},
-    {"LStickPush",  0, XINPUT_GAMEPAD_LEFT_THUMB},
-    {"RStickPush",  0, XINPUT_GAMEPAD_RIGHT_THUMB},
-    {"LTrigTop",    0, XINPUT_GAMEPAD_LEFT_SHOULDER},
-    {"RTrigTop",    0, XINPUT_GAMEPAD_RIGHT_SHOULDER},
+    /* Monster Hunter Wilds. */
+    DIGITAL_BUTTON("LUp", XINPUT_GAMEPAD_DPAD_UP),
+    DIGITAL_BUTTON("LDown", XINPUT_GAMEPAD_DPAD_DOWN),
+    DIGITAL_BUTTON("LLeft", XINPUT_GAMEPAD_DPAD_LEFT),
+    DIGITAL_BUTTON("LRight", XINPUT_GAMEPAD_DPAD_RIGHT),
+    DIGITAL_BUTTON("RUp", XINPUT_GAMEPAD_Y),
+    DIGITAL_BUTTON("RDown", XINPUT_GAMEPAD_A),
+    DIGITAL_BUTTON("RLeft", XINPUT_GAMEPAD_X),
+    DIGITAL_BUTTON("RRight", XINPUT_GAMEPAD_B),
+    DIGITAL_BUTTON("CLeft", XINPUT_GAMEPAD_BACK),
+    DIGITAL_BUTTON("CRight", XINPUT_GAMEPAD_START),
+    DIGITAL_UNAVAILABLE("CCenter"),
+    DIGITAL_BUTTON("LStickPush", XINPUT_GAMEPAD_LEFT_THUMB),
+    DIGITAL_BUTTON("RStickPush", XINPUT_GAMEPAD_RIGHT_THUMB),
+    DIGITAL_BUTTON("LTrigTop", XINPUT_GAMEPAD_LEFT_SHOULDER),
+    DIGITAL_BUTTON("RTrigTop", XINPUT_GAMEPAD_RIGHT_SHOULDER),
+
+    /* Horizon Zero Dawn. */
+    DIGITAL_BUTTON("button_a", XINPUT_GAMEPAD_A),
+    DIGITAL_BUTTON("button_b", XINPUT_GAMEPAD_B),
+    DIGITAL_BUTTON("button_x", XINPUT_GAMEPAD_X),
+    DIGITAL_BUTTON("button_y", XINPUT_GAMEPAD_Y),
+    DIGITAL_BUTTON("button_touchpad", XINPUT_GAMEPAD_BACK),
+    DIGITAL_BUTTON("button_start", XINPUT_GAMEPAD_START),
+    DIGITAL_BUTTON("dpad_up", XINPUT_GAMEPAD_DPAD_UP),
+    DIGITAL_BUTTON("dpad_down", XINPUT_GAMEPAD_DPAD_DOWN),
+    DIGITAL_BUTTON("dpad_left", XINPUT_GAMEPAD_DPAD_LEFT),
+    DIGITAL_BUTTON("dpad_right", XINPUT_GAMEPAD_DPAD_RIGHT),
+    DIGITAL_BUTTON("left_bumper", XINPUT_GAMEPAD_LEFT_SHOULDER),
+    DIGITAL_BUTTON("right_bumper", XINPUT_GAMEPAD_RIGHT_SHOULDER),
+    DIGITAL_BUTTON("left_stick_click", XINPUT_GAMEPAD_LEFT_THUMB),
+    DIGITAL_BUTTON("right_stick_click", XINPUT_GAMEPAD_RIGHT_THUMB),
+    DIGITAL_UNAVAILABLE("left_back_panel"),
+    DIGITAL_UNAVAILABLE("right_back_panel"),
+
+    /* God of War Ragnarok. */
+    DIGITAL_BUTTON("evade", XINPUT_GAMEPAD_A),
+    DIGITAL_BUTTON("useworld", XINPUT_GAMEPAD_B),
+    DIGITAL_BUTTON("companioninteract", XINPUT_GAMEPAD_X),
+    DIGITAL_BUTTON("axerecall", XINPUT_GAMEPAD_Y),
+    DIGITAL_TRIGGER("aim", XINPUT_DIGITAL_LEFT_TRIGGER),
+    DIGITAL_TRIGGER("heavyattack", XINPUT_DIGITAL_RIGHT_TRIGGER),
+    DIGITAL_BUTTON("defend", XINPUT_GAMEPAD_LEFT_SHOULDER),
+    DIGITAL_BUTTON("lightattack", XINPUT_GAMEPAD_RIGHT_SHOULDER),
+    DIGITAL_BUTTON("sprint", XINPUT_GAMEPAD_LEFT_THUMB),
+    DIGITAL_BUTTON("togglelockon", XINPUT_GAMEPAD_RIGHT_THUMB),
+    DIGITAL_BUTTON("companionammo", XINPUT_GAMEPAD_DPAD_UP),
+    DIGITAL_BUTTON("tertiaryweapontoggle", XINPUT_GAMEPAD_DPAD_DOWN),
+    DIGITAL_BUTTON("primaryweapontoggle", XINPUT_GAMEPAD_DPAD_RIGHT),
+    DIGITAL_BUTTON("secondaryweapontoggle", XINPUT_GAMEPAD_DPAD_LEFT),
+    DIGITAL_BUTTON("pausemenu", XINPUT_GAMEPAD_START),
+    DIGITAL_BUTTON("weaponmenu", XINPUT_GAMEPAD_BACK),
+    DIGITAL_BUTTON("SELECT", XINPUT_GAMEPAD_A),
+    DIGITAL_BUTTON("Cancel", XINPUT_GAMEPAD_B),
+    DIGITAL_BUTTON("MenuX", XINPUT_GAMEPAD_X),
+    DIGITAL_BUTTON("MenuY", XINPUT_GAMEPAD_Y),
+    DIGITAL_TRIGGER("MenuPrevScreen", XINPUT_DIGITAL_LEFT_TRIGGER),
+    DIGITAL_TRIGGER("MenuNextScreen", XINPUT_DIGITAL_RIGHT_TRIGGER),
+    DIGITAL_BUTTON("MenuPrevOption", XINPUT_GAMEPAD_LEFT_SHOULDER),
+    DIGITAL_BUTTON("MenuNextOption", XINPUT_GAMEPAD_RIGHT_SHOULDER),
+    DIGITAL_BUTTON("MenuLclick", XINPUT_GAMEPAD_LEFT_THUMB),
+    DIGITAL_BUTTON("MenuRclick", XINPUT_GAMEPAD_RIGHT_THUMB),
+    DIGITAL_BUTTON("MenuUp", XINPUT_GAMEPAD_DPAD_UP),
+    DIGITAL_BUTTON("MenuDown", XINPUT_GAMEPAD_DPAD_DOWN),
+    DIGITAL_BUTTON("MenuRight", XINPUT_GAMEPAD_DPAD_RIGHT),
+    DIGITAL_BUTTON("MenuLeft", XINPUT_GAMEPAD_DPAD_LEFT),
+    DIGITAL_BUTTON("MenuCharacter", XINPUT_GAMEPAD_BACK),
+    DIGITAL_BUTTON("MenuExit", XINPUT_GAMEPAD_START),
 };
 
 static struct xinput_analog_action xinput_analog_actions[] =
@@ -70,13 +139,44 @@ static struct xinput_analog_action xinput_analog_actions[] =
     {"TouchPad", 0, XINPUT_ANALOG_UNAVAILABLE},
     {"AnalogL",  0, XINPUT_ANALOG_LEFT_TRIGGER},
     {"AnalogR",  0, XINPUT_ANALOG_RIGHT_TRIGGER},
+    {"left_trigger",  0, XINPUT_ANALOG_LEFT_TRIGGER},
+    {"right_trigger", 0, XINPUT_ANALOG_RIGHT_TRIGGER},
+    {"left_stick",    0, XINPUT_ANALOG_LEFT_STICK},
+    {"right_stick",   0, XINPUT_ANALOG_RIGHT_STICK},
+    {"Move",          0, XINPUT_ANALOG_LEFT_STICK},
+    {"Camera",         0, XINPUT_ANALOG_RIGHT_STICK},
 };
 
-static BOOL steaminput_xinput_fallback_enabled(void)
+static struct
 {
-    const char *env = getenv("PROTON_STEAMINPUT_XINPUT_FALLBACK");
+    const char *name;
+    uint64_t handle;
+} xinput_action_sets[] =
+{
+    {"GamepadSetting", 0},
+    {"GameControls", 0},
+    {"MenuControls", 0},
+};
+
+static BOOL env_enabled(const char *name)
+{
+    const char *env = getenv(name);
 
     return env && env[0] == '1' && !env[1];
+}
+
+int steaminput_xinput_fallback_enabled(void)
+{
+    return env_enabled("PROTON_STEAMINPUT_FALLBACK") ||
+            env_enabled("PROTON_STEAMINPUT_XINPUT_FALLBACK");
+}
+
+static uint32_t steaminput_xinput_fallback_type(void)
+{
+    if (env_enabled("PROTON_STEAMINPUT_LAYOUT_DS5")) return STEAM_INPUT_TYPE_PS5;
+    if (env_enabled("PROTON_STEAMINPUT_LAYOUT_DS4")) return STEAM_INPUT_TYPE_PS4;
+    if (env_enabled("PROTON_STEAMINPUT_LAYOUT_XBOX")) return STEAM_INPUT_TYPE_XBOX_ONE;
+    return STEAM_INPUT_TYPE_XBOX_ONE;
 }
 
 static uint64_t xinput_steam_handle(unsigned int index)
@@ -123,6 +223,24 @@ int32_t steaminput006_xinput_get_connected_controllers(int32_t native_count, uin
     return (int32_t)count;
 }
 
+uint64_t steaminput006_xinput_register_action_set(uint64_t native_handle, const char *name)
+{
+    unsigned int i;
+
+    if (!steaminput_xinput_fallback_enabled() || !name) return native_handle;
+
+    for (i = 0; i < ARRAY_SIZE(xinput_action_sets); ++i)
+    {
+        if (strcmp(name, xinput_action_sets[i].name)) continue;
+        if (native_handle) xinput_action_sets[i].handle = native_handle;
+        else if (!xinput_action_sets[i].handle)
+            xinput_action_sets[i].handle = XINPUT_ACTION_SET_BASE + i;
+        return xinput_action_sets[i].handle;
+    }
+
+    return native_handle;
+}
+
 uint64_t steaminput006_xinput_register_digital_action(uint64_t native_handle, const char *name)
 {
     unsigned int i;
@@ -158,8 +276,27 @@ int steaminput006_xinput_get_digital_action_data(InputDigitalActionData_t *data,
     for (i = 0; i < ARRAY_SIZE(xinput_digital_actions); ++i)
     {
         if (xinput_digital_actions[i].handle != action_handle) continue;
-        data->bState = !!(state.Gamepad.wButtons & xinput_digital_actions[i].buttons);
-        data->bActive = !!xinput_digital_actions[i].buttons;
+
+        switch (xinput_digital_actions[i].source)
+        {
+            case XINPUT_DIGITAL_BUTTON:
+                data->bState = !!(state.Gamepad.wButtons & xinput_digital_actions[i].buttons);
+                data->bActive = TRUE;
+                break;
+
+            case XINPUT_DIGITAL_LEFT_TRIGGER:
+                data->bState = state.Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD;
+                data->bActive = TRUE;
+                break;
+
+            case XINPUT_DIGITAL_RIGHT_TRIGGER:
+                data->bState = state.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD;
+                data->bActive = TRUE;
+                break;
+
+            case XINPUT_DIGITAL_UNAVAILABLE:
+                break;
+        }
         break;
     }
 
@@ -276,7 +413,7 @@ int steaminput006_xinput_get_input_type(uint32_t *type, uint64_t input_handle)
     if (!steaminput_xinput_fallback_enabled() || xinput_index_from_steam_handle(input_handle) < 0)
         return FALSE;
 
-    *type = STEAM_INPUT_TYPE_XBOX_ONE;
+    *type = steaminput_xinput_fallback_type();
     return TRUE;
 }
 

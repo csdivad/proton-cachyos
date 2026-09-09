@@ -1210,7 +1210,7 @@ def handle_method_c(klass, method, winclassname, out):
         if pretouch is not None:
             out(pretouch.format(p.spelling))
 
-    steaminput006_hooks = {
+    steaminput_hooks = {
         "GetDigitalActionData":
             "    if (steaminput006_xinput_get_digital_action_data( _ret, inputHandle, digitalActionHandle )) return _ret;\n",
         "GetAnalogActionData":
@@ -1227,13 +1227,18 @@ def handle_method_c(klass, method, winclassname, out):
         "GetGamepadIndexForController":
             "    if (steaminput006_xinput_get_gamepad_index_for_controller( &params._ret, ulinputHandle )) return params._ret;\n",
     }
-    if klass.full_name == "ISteamInput_SteamInput006" and method.name in steaminput006_hooks:
-        out(steaminput006_hooks[method.name])
+    is_steaminput = klass.full_name.startswith("ISteamInput_SteamInput")
+    if is_steaminput and method.name in steaminput_hooks:
+        out(steaminput_hooks[method.name])
 
     out(f'    STEAMCLIENT_CALL( {method.full_name}, &params );\n')
-    if klass.full_name == "ISteamInput_SteamInput006":
-        if method.name == "GetConnectedControllers":
+    if is_steaminput:
+        if method.name == "Init":
+            out(u'    if (steaminput_xinput_fallback_enabled()) params._ret = TRUE;\n')
+        elif method.name == "GetConnectedControllers":
             out(u'    params._ret = steaminput006_xinput_get_connected_controllers( params._ret, handlesOut );\n')
+        elif method.name == "GetActionSetHandle":
+            out(u'    params._ret = steaminput006_xinput_register_action_set( params._ret, pszActionSetName );\n')
         elif method.name == "GetDigitalActionHandle":
             out(u'    params._ret = steaminput006_xinput_register_digital_action( params._ret, pszActionName );\n')
         elif method.name == "GetAnalogActionHandle":
