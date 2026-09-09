@@ -1605,7 +1605,7 @@ $(alt_arial.ttf): $(FONTS)/scripts/merge.py $(noto_sans.ttf) $(noto_sans_arabic.
 	$(FONTS)/scripts/merge.py $(noto_sans.ttf) $(noto_sans_arabic.ttf) $(noto_sans_hebrew.ttf) $(noto_sans_armenian.ttf) $(noto_sans_coptic.ttf) \
 		$(noto_sans_math.ttf) $(noto_sans_symbols.ttf) $(noto_sans_symbols2.ttf) $(noto_sans_mono.ttf) "Arial" "Arial" "Regular" $(FONTS)/ranges/arial $(alt_arial.ttf)
 
-$(lucon.ttf): $(FONTS)/scripts/merge.py $(noto_sans_mono.ttf) $(noto_sans_math.ttf) $(noto_sans_symbols.ttf) $(noto_sans_symbols2.ttf)
+$(lucon.ttf): $(FONTS)/scripts/merge.py $(noto_sans_mono.ttf) $(noto_sans_math.ttf) $(noto_sans_symbols.ttf) $(noto_sans_symbols2.ttf) $(FONTS)/ranges/lucon | $(FONTS_OBJ)
 	$(FONTS)/scripts/merge.py $(noto_sans_mono.ttf) $(noto_sans_math.ttf) $(noto_sans_symbols.ttf) $(noto_sans_symbols2.ttf) "LucidaConsole" "Lucida Console" "Regular" $(FONTS)/ranges/lucon $(lucon.ttf)
 
 fonts: $(msyh.ttf)
