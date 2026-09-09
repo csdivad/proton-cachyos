@@ -1226,6 +1226,8 @@ def handle_method_c(klass, method, winclassname, out):
             "    if (steaminput006_xinput_get_input_type( &params._ret, inputHandle )) return params._ret;\n",
         "GetGamepadIndexForController":
             "    if (steaminput006_xinput_get_gamepad_index_for_controller( &params._ret, ulinputHandle )) return params._ret;\n",
+        "GetControllerForGamepadIndex":
+            "    if (steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex )) return params._ret;\n",
     }
     is_steaminput = klass.full_name.startswith("ISteamInput_SteamInput")
     if is_steaminput and method.name in steaminput_hooks:
@@ -1243,8 +1245,6 @@ def handle_method_c(klass, method, winclassname, out):
             out(u'    params._ret = steaminput006_xinput_register_digital_action( params._ret, pszActionName );\n')
         elif method.name == "GetAnalogActionHandle":
             out(u'    params._ret = steaminput006_xinput_register_analog_action( params._ret, pszActionName );\n')
-        elif method.name == "GetControllerForGamepadIndex":
-            out(u'    if (!params._ret) steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex );\n')
     if method.name in OUTSTR_PARAMS and OUTSTR_PARAMS[method.name] in names:
         out(f'    if ({OUTSTR_PARAMS[method.name]}) *{OUTSTR_PARAMS[method.name]} = get_unix_buffer( params._str );\n')
 

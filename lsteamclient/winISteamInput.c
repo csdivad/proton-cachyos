@@ -388,8 +388,8 @@ uint64_t __thiscall winISteamInput_SteamInput001_GetControllerForGamepadIndex(st
         .nIndex = nIndex,
     };
     TRACE("%p\n", _this);
+    if (steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex )) return params._ret;
     STEAMCLIENT_CALL( ISteamInput_SteamInput001_GetControllerForGamepadIndex, &params );
-    if (!params._ret) steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex );
     return params._ret;
 }
 
@@ -908,8 +908,8 @@ uint64_t __thiscall winISteamInput_SteamInput002_GetControllerForGamepadIndex(st
         .nIndex = nIndex,
     };
     TRACE("%p\n", _this);
+    if (steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex )) return params._ret;
     STEAMCLIENT_CALL( ISteamInput_SteamInput002_GetControllerForGamepadIndex, &params );
-    if (!params._ret) steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex );
     return params._ret;
 }
 
@@ -1557,8 +1557,8 @@ uint64_t __thiscall winISteamInput_SteamInput005_GetControllerForGamepadIndex(st
         .nIndex = nIndex,
     };
     TRACE("%p\n", _this);
+    if (steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex )) return params._ret;
     STEAMCLIENT_CALL( ISteamInput_SteamInput005_GetControllerForGamepadIndex, &params );
-    if (!params._ret) steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex );
     return params._ret;
 }
 
@@ -2230,8 +2230,8 @@ uint64_t __thiscall winISteamInput_SteamInput006_GetControllerForGamepadIndex(st
         .nIndex = nIndex,
     };
     TRACE("%p\n", _this);
+    if (steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex )) return params._ret;
     STEAMCLIENT_CALL( ISteamInput_SteamInput006_GetControllerForGamepadIndex, &params );
-    if (!params._ret) steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex );
     return params._ret;
 }
 
@@ -2916,8 +2916,8 @@ uint64_t __thiscall winISteamInput_SteamInput007_GetControllerForGamepadIndex(st
         .nIndex = nIndex,
     };
     TRACE("%p\n", _this);
+    if (steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex )) return params._ret;
     STEAMCLIENT_CALL( ISteamInput_SteamInput007_GetControllerForGamepadIndex, &params );
-    if (!params._ret) steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex );
     return params._ret;
 }
 

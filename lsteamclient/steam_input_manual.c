@@ -115,6 +115,7 @@ static struct xinput_digital_action xinput_digital_actions[] =
     DIGITAL_BUTTON("pausemenu", XINPUT_GAMEPAD_START),
     DIGITAL_BUTTON("weaponmenu", XINPUT_GAMEPAD_BACK),
     DIGITAL_BUTTON("SELECT", XINPUT_GAMEPAD_A),
+    DIGITAL_BUTTON("Select", XINPUT_GAMEPAD_A),
     DIGITAL_BUTTON("Cancel", XINPUT_GAMEPAD_B),
     DIGITAL_BUTTON("MenuX", XINPUT_GAMEPAD_X),
     DIGITAL_BUTTON("MenuY", XINPUT_GAMEPAD_Y),
@@ -205,7 +206,7 @@ int32_t steaminput006_xinput_get_connected_controllers(int32_t native_count, uin
     unsigned int index, count = 0, mask = 0;
     XINPUT_STATE state;
 
-    if (!steaminput_xinput_fallback_enabled() || native_count > 0 || !handles) return native_count;
+    if (!steaminput_xinput_fallback_enabled() || !handles) return native_count;
 
     for (index = 0; index < XUSER_MAX_COUNT; ++index)
     {
@@ -216,7 +217,8 @@ int32_t steaminput006_xinput_get_connected_controllers(int32_t native_count, uin
 
     if (mask != previous_mask)
     {
-        TRACE("Steam Input XInput fallback connected mask %#x.\n", mask);
+        TRACE("Steam Input XInput fallback replacing %d native controllers with mask %#x.\n",
+                native_count, mask);
         previous_mask = mask;
     }
 
@@ -253,9 +255,13 @@ uint64_t steaminput006_xinput_register_digital_action(uint64_t native_handle, co
         if (native_handle) xinput_digital_actions[i].handle = native_handle;
         else if (!xinput_digital_actions[i].handle)
             xinput_digital_actions[i].handle = XINPUT_DIGITAL_ACTION_BASE + i;
+        TRACE("Steam Input XInput fallback mapped digital action '%s' to %#I64x.\n",
+                name, xinput_digital_actions[i].handle);
         return xinput_digital_actions[i].handle;
     }
 
+    TRACE("Steam Input XInput fallback has no mapping for digital action '%s' (native handle %#I64x).\n",
+            name, native_handle);
     return native_handle;
 }
 
@@ -271,6 +277,7 @@ int steaminput006_xinput_get_digital_action_data(InputDigitalActionData_t *data,
         return FALSE;
 
     memset(data, 0, sizeof(*data));
+    if (!action_handle) return TRUE;
     if (XInputGetState(index, &state) != ERROR_SUCCESS) return TRUE;
 
     for (i = 0; i < ARRAY_SIZE(xinput_digital_actions); ++i)
@@ -333,6 +340,7 @@ int steaminput006_xinput_get_analog_action_data(InputAnalogActionData_t *data,
         return FALSE;
 
     memset(data, 0, sizeof(*data));
+    if (!action_handle) return TRUE;
     if (XInputGetState(index, &state) != ERROR_SUCCESS) return TRUE;
 
     for (i = 0; i < ARRAY_SIZE(xinput_analog_actions); ++i)
