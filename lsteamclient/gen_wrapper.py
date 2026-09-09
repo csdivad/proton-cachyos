@@ -1176,6 +1176,12 @@ def handle_thiscall_wrapper(klass, method, out):
 def handle_method_c(klass, method, winclassname, out):
     returns_void = method.result_type.kind == TypeKind.VOID
     returns_record = method.result_type.get_canonical().kind == TypeKind.RECORD
+    is_steaminput = klass.full_name.startswith("ISteamInput_SteamInput")
+    session_config_method = None
+
+    if is_steaminput and method.name == "Init":
+        session_config_method = next((candidate for candidate in klass.methods
+                if candidate.name == "GetSessionInputConfigurationSettings"), None)
 
     ret = "*" if returns_record else ""
     ret = f'{declspec(method.result_type, ret, "w_")} '
@@ -1199,6 +1205,12 @@ def handle_method_c(klass, method, winclassname, out):
     out(u'        .u_iface = _this->u_iface,\n')
     for name in names[1:]: out(f'        .{name} = {name},\n')
     out(u'    };\n')
+
+    if session_config_method:
+        out(f'    struct {session_config_method.full_name}_params config_params =\n')
+        out(u'    {\n')
+        out(u'        .u_iface = _this->u_iface,\n')
+        out(u'    };\n')
 
     out(u'    TRACE("%p\\n", _this);\n')
 
@@ -1229,16 +1241,22 @@ def handle_method_c(klass, method, winclassname, out):
         "GetControllerForGamepadIndex":
             "    if (steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex )) return params._ret;\n",
     }
-    is_steaminput = klass.full_name.startswith("ISteamInput_SteamInput")
     if is_steaminput and method.name in steaminput_hooks:
         out(steaminput_hooks[method.name])
 
     out(f'    STEAMCLIENT_CALL( {method.full_name}, &params );\n')
     if is_steaminput:
         if method.name == "Init":
-            out(u'    if (steaminput_xinput_fallback_enabled()) params._ret = TRUE;\n')
+            if session_config_method:
+                out(f'    STEAMCLIENT_CALL( {session_config_method.full_name}, &config_params );\n')
+                out(u'    steaminput_xinput_set_native_configuration( config_params._ret );\n')
+                out(u'    if (steaminput_xinput_fallback_active()) params._ret = TRUE;\n')
+            else:
+                out(u'    if (steaminput_xinput_fallback_configured()) params._ret = TRUE;\n')
         elif method.name == "GetConnectedControllers":
             out(u'    params._ret = steaminput006_xinput_get_connected_controllers( params._ret, handlesOut );\n')
+        elif method.name == "GetSessionInputConfigurationSettings":
+            out(u'    params._ret = steaminput_xinput_get_session_configuration( params._ret );\n')
         elif method.name == "GetActionSetHandle":
             out(u'    params._ret = steaminput006_xinput_register_action_set( params._ret, pszActionSetName );\n')
         elif method.name == "GetDigitalActionHandle":

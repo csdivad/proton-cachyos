@@ -33,6 +33,12 @@ enum steam_input_type
     STEAM_INPUT_TYPE_PS5 = 13,
 };
 
+enum steam_input_configuration
+{
+    STEAM_INPUT_CONFIGURATION_PLAYSTATION = 0x0001,
+    STEAM_INPUT_CONFIGURATION_XBOX = 0x0002,
+};
+
 enum xinput_digital_source
 {
     XINPUT_DIGITAL_BUTTON,
@@ -174,10 +180,48 @@ static BOOL env_enabled(const char *name)
     return env && env[0] == '1' && !env[1];
 }
 
-int steaminput_xinput_fallback_enabled(void)
+enum steaminput_xinput_fallback_mode
+{
+    STEAMINPUT_FALLBACK_UNKNOWN,
+    STEAMINPUT_FALLBACK_NATIVE,
+    STEAMINPUT_FALLBACK_XINPUT,
+};
+
+static LONG steaminput_xinput_fallback_mode;
+static LONG steaminput_native_configuration_known;
+
+int steaminput_xinput_fallback_configured(void)
 {
     return env_enabled("PROTON_STEAMINPUT_FALLBACK") ||
             env_enabled("PROTON_STEAMINPUT_XINPUT_FALLBACK");
+}
+
+int steaminput_xinput_fallback_active(void)
+{
+    return steaminput_xinput_fallback_configured() &&
+            InterlockedCompareExchange(&steaminput_xinput_fallback_mode, 0, 0) ==
+            STEAMINPUT_FALLBACK_XINPUT;
+}
+
+static void steaminput_xinput_set_fallback_mode(enum steaminput_xinput_fallback_mode mode,
+        const char *reason)
+{
+    LONG previous = InterlockedExchange(&steaminput_xinput_fallback_mode, mode);
+
+    if (previous != mode)
+        TRACE("Steam Input mode changed from %ld to %u (%s).\n", previous,
+                (unsigned int)mode, reason);
+}
+
+void steaminput_xinput_set_native_configuration(uint16_t native_configuration)
+{
+    InterlockedExchange(&steaminput_native_configuration_known, TRUE);
+    if (native_configuration || !steaminput_xinput_fallback_configured())
+        steaminput_xinput_set_fallback_mode(STEAMINPUT_FALLBACK_NATIVE,
+                "native session configuration enabled");
+    else
+        steaminput_xinput_set_fallback_mode(STEAMINPUT_FALLBACK_XINPUT,
+                "native session configuration disabled");
 }
 
 typedef DWORD (WINAPI *xinput_get_sony_product_id_func)(DWORD index, WORD *product_id);
@@ -222,6 +266,40 @@ static uint32_t steaminput_xinput_fallback_type(unsigned int index)
             product_id == SONY_DUALSHOCK4_ADAPTER_PRODUCT_ID)
         return STEAM_INPUT_TYPE_PS4;
     return STEAM_INPUT_TYPE_XBOX_ONE;
+}
+
+uint16_t steaminput_xinput_get_session_configuration(uint16_t native_configuration)
+{
+    uint16_t fallback_configuration = 0;
+    unsigned int index;
+    XINPUT_STATE state;
+
+    steaminput_xinput_set_native_configuration(native_configuration);
+    if (native_configuration || !steaminput_xinput_fallback_active())
+        return native_configuration;
+
+    for (index = 0; index < XUSER_MAX_COUNT; ++index)
+    {
+        uint32_t type;
+
+        if (XInputGetState(index, &state) != ERROR_SUCCESS) continue;
+        type = steaminput_xinput_fallback_type(index);
+        if (type == STEAM_INPUT_TYPE_PS4 || type == STEAM_INPUT_TYPE_PS5)
+            fallback_configuration |= STEAM_INPUT_CONFIGURATION_PLAYSTATION;
+        else
+            fallback_configuration |= STEAM_INPUT_CONFIGURATION_XBOX;
+    }
+
+    if (!fallback_configuration)
+    {
+        if (env_enabled("PROTON_STEAMINPUT_LAYOUT_DS4") ||
+                env_enabled("PROTON_STEAMINPUT_LAYOUT_DS5"))
+            fallback_configuration = STEAM_INPUT_CONFIGURATION_PLAYSTATION;
+        else
+            fallback_configuration = STEAM_INPUT_CONFIGURATION_XBOX;
+    }
+
+    return fallback_configuration;
 }
 
 static uint64_t xinput_steam_handle(unsigned int index, uint32_t type)
@@ -270,7 +348,20 @@ int32_t steaminput006_xinput_get_connected_controllers(int32_t native_count, uin
     unsigned int index, count = 0, mask = 0;
     XINPUT_STATE state;
 
-    if (!steaminput_xinput_fallback_enabled() || !handles) return native_count;
+    if (!steaminput_xinput_fallback_configured() || !handles) return native_count;
+
+    if (InterlockedCompareExchange(&steaminput_xinput_fallback_mode, 0, 0) ==
+            STEAMINPUT_FALLBACK_NATIVE)
+        return native_count;
+
+    /* Interfaces before SteamInput005 have no session configuration query. */
+    if (!InterlockedCompareExchange(&steaminput_native_configuration_known, 0, 0) &&
+            native_count > 0)
+    {
+        steaminput_xinput_set_fallback_mode(STEAMINPUT_FALLBACK_NATIVE,
+                "native controller enumeration succeeded");
+        return native_count;
+    }
 
     for (index = 0; index < XUSER_MAX_COUNT; ++index)
     {
@@ -279,6 +370,14 @@ int32_t steaminput006_xinput_get_connected_controllers(int32_t native_count, uin
         handles[count++] = xinput_steam_handle(index, current_types[index]);
         mask |= 1u << index;
     }
+
+    if (!InterlockedCompareExchange(&steaminput_native_configuration_known, 0, 0) && count &&
+            InterlockedCompareExchange(&steaminput_xinput_fallback_mode, 0, 0) ==
+            STEAMINPUT_FALLBACK_UNKNOWN)
+        steaminput_xinput_set_fallback_mode(STEAMINPUT_FALLBACK_XINPUT,
+                "native controller enumeration empty");
+
+    if (!steaminput_xinput_fallback_active()) return native_count;
 
     if (mask != previous_mask || memcmp(current_types, previous_types, sizeof(current_types)))
     {
@@ -296,7 +395,7 @@ uint64_t steaminput006_xinput_register_action_set(uint64_t native_handle, const 
 {
     unsigned int i;
 
-    if (!steaminput_xinput_fallback_enabled() || !name) return native_handle;
+    if (!steaminput_xinput_fallback_active() || !name) return native_handle;
 
     for (i = 0; i < ARRAY_SIZE(xinput_action_sets); ++i)
     {
@@ -314,7 +413,7 @@ uint64_t steaminput006_xinput_register_digital_action(uint64_t native_handle, co
 {
     unsigned int i;
 
-    if (!steaminput_xinput_fallback_enabled() || !name) return native_handle;
+    if (!steaminput_xinput_fallback_active() || !name) return native_handle;
 
     for (i = 0; i < ARRAY_SIZE(xinput_digital_actions); ++i)
     {
@@ -339,7 +438,7 @@ int steaminput006_xinput_get_digital_action_data(InputDigitalActionData_t *data,
     unsigned int i;
     int index;
 
-    if (!steaminput_xinput_fallback_enabled() ||
+    if (!steaminput_xinput_fallback_active() ||
         (index = xinput_index_from_steam_handle(input_handle)) < 0)
         return FALSE;
 
@@ -381,7 +480,7 @@ uint64_t steaminput006_xinput_register_analog_action(uint64_t native_handle, con
 {
     unsigned int i;
 
-    if (!steaminput_xinput_fallback_enabled() || !name) return native_handle;
+    if (!steaminput_xinput_fallback_active() || !name) return native_handle;
 
     for (i = 0; i < ARRAY_SIZE(xinput_analog_actions); ++i)
     {
@@ -402,7 +501,7 @@ int steaminput006_xinput_get_analog_action_data(InputAnalogActionData_t *data,
     unsigned int i;
     int index;
 
-    if (!steaminput_xinput_fallback_enabled() ||
+    if (!steaminput_xinput_fallback_active() ||
         (index = xinput_index_from_steam_handle(input_handle)) < 0)
         return FALSE;
 
@@ -454,7 +553,7 @@ int steaminput006_xinput_get_analog_action_data(InputAnalogActionData_t *data,
 
 int steaminput006_xinput_get_motion_data(InputMotionData_t *data, uint64_t input_handle)
 {
-    if (!steaminput_xinput_fallback_enabled() || xinput_index_from_steam_handle(input_handle) < 0)
+    if (!steaminput_xinput_fallback_active() || xinput_index_from_steam_handle(input_handle) < 0)
         return FALSE;
 
     memset(data, 0, sizeof(*data));
@@ -467,7 +566,7 @@ int steaminput006_xinput_trigger_vibration(uint64_t input_handle, uint16_t left,
     XINPUT_VIBRATION vibration = {left, right};
     int index;
 
-    if (!steaminput_xinput_fallback_enabled() ||
+    if (!steaminput_xinput_fallback_active() ||
         (index = xinput_index_from_steam_handle(input_handle)) < 0)
         return FALSE;
 
@@ -488,7 +587,7 @@ int steaminput006_xinput_get_input_type(uint32_t *type, uint64_t input_handle)
     int index;
     uint32_t handle_type;
 
-    if (!steaminput_xinput_fallback_enabled() ||
+    if (!steaminput_xinput_fallback_active() ||
             (index = xinput_index_from_steam_handle(input_handle)) < 0) return FALSE;
 
     handle_type = xinput_type_from_steam_handle(input_handle);
@@ -500,7 +599,7 @@ int steaminput006_xinput_get_controller_for_gamepad_index(uint64_t *handle, int3
 {
     XINPUT_STATE state;
 
-    if (!steaminput_xinput_fallback_enabled() || index < 0 || (unsigned int)index >= XUSER_MAX_COUNT ||
+    if (!steaminput_xinput_fallback_active() || index < 0 || (unsigned int)index >= XUSER_MAX_COUNT ||
         XInputGetState(index, &state) != ERROR_SUCCESS)
         return FALSE;
 
@@ -512,7 +611,7 @@ int steaminput006_xinput_get_gamepad_index_for_controller(int32_t *index, uint64
 {
     int xinput_index;
 
-    if (!steaminput_xinput_fallback_enabled() ||
+    if (!steaminput_xinput_fallback_active() ||
         (xinput_index = xinput_index_from_steam_handle(input_handle)) < 0)
         return FALSE;
 
