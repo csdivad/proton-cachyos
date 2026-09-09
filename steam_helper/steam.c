@@ -575,7 +575,8 @@ run:
     SetConsoleCtrlHandler( console_ctrl_handler, TRUE );
 
     use_shell_execute = should_use_shell_execute(cmdline);
-    if (use_shell_execute && wcslen( cmdline ) > 10 && !memcmp( cmdline, L"link2ea://", 10 * sizeof(WCHAR) ))
+    if (use_shell_execute && wcslen( cmdline ) > 10
+        && (!memcmp( cmdline, L"link2ea://", 10 * sizeof(WCHAR) ) || !memcmp( cmdline, L"steam2ea://", 11 * sizeof(WCHAR) )))
     {
         HDESK desktop = GetThreadDesktop(GetCurrentThreadId());
         DWORD is_unavailable, type, size;
@@ -585,6 +586,7 @@ run:
         HKEY eakey;
         BOOL ret;
 
+        TRACE("applying EA launcher workarounds.\n");
         link2ea = TRUE;
         if (!SetUserObjectInformationA(desktop, 1000, &timeout, sizeof(timeout)))
             WINE_ERR("Failed to set desktop timeout, err %lu.\n", GetLastError());
@@ -892,9 +894,9 @@ static HANDLE find_ack_event(void)
         if (!strncmpW( di->ObjectName.Buffer, L"STEAM_START_ACK_EVENT", 21 ))
         {
             WINE_TRACE("Found event %s.\n", wine_dbgstr_w(di->ObjectName.Buffer));
-            ret = OpenEventW(SYNCHRONIZE, FALSE, di->ObjectName.Buffer);
+            ret = OpenEventW(SYNCHRONIZE | EVENT_MODIFY_STATE, FALSE, di->ObjectName.Buffer);
             if (!ret)
-                WINE_WARN("Failed to create event, err %lu.\n", GetLastError());
+                WINE_WARN("Failed to open ack event, err %lu.\n", GetLastError());
             break;
         }
         status = NtQueryDirectoryObject(dir, di, sizeof(buffer), TRUE, FALSE, &context, &size);
