@@ -1210,7 +1210,36 @@ def handle_method_c(klass, method, winclassname, out):
         if pretouch is not None:
             out(pretouch.format(p.spelling))
 
+    steaminput006_hooks = {
+        "GetDigitalActionData":
+            "    if (steaminput006_xinput_get_digital_action_data( _ret, inputHandle, digitalActionHandle )) return _ret;\n",
+        "GetAnalogActionData":
+            "    if (steaminput006_xinput_get_analog_action_data( _ret, inputHandle, analogActionHandle )) return _ret;\n",
+        "GetMotionData":
+            "    if (steaminput006_xinput_get_motion_data( _ret, inputHandle )) return _ret;\n",
+        "TriggerVibration":
+            "    if (steaminput006_xinput_trigger_vibration( inputHandle, usLeftSpeed, usRightSpeed )) return;\n",
+        "TriggerVibrationExtended":
+            "    if (steaminput006_xinput_trigger_vibration_extended( inputHandle, usLeftSpeed, usRightSpeed,\n"
+            "            usLeftTriggerSpeed, usRightTriggerSpeed )) return;\n",
+        "GetInputTypeForHandle":
+            "    if (steaminput006_xinput_get_input_type( &params._ret, inputHandle )) return params._ret;\n",
+        "GetGamepadIndexForController":
+            "    if (steaminput006_xinput_get_gamepad_index_for_controller( &params._ret, ulinputHandle )) return params._ret;\n",
+    }
+    if klass.full_name == "ISteamInput_SteamInput006" and method.name in steaminput006_hooks:
+        out(steaminput006_hooks[method.name])
+
     out(f'    STEAMCLIENT_CALL( {method.full_name}, &params );\n')
+    if klass.full_name == "ISteamInput_SteamInput006":
+        if method.name == "GetConnectedControllers":
+            out(u'    params._ret = steaminput006_xinput_get_connected_controllers( params._ret, handlesOut );\n')
+        elif method.name == "GetDigitalActionHandle":
+            out(u'    params._ret = steaminput006_xinput_register_digital_action( params._ret, pszActionName );\n')
+        elif method.name == "GetAnalogActionHandle":
+            out(u'    params._ret = steaminput006_xinput_register_analog_action( params._ret, pszActionName );\n')
+        elif method.name == "GetControllerForGamepadIndex":
+            out(u'    if (!params._ret) steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex );\n')
     if method.name in OUTSTR_PARAMS and OUTSTR_PARAMS[method.name] in names:
         out(f'    if ({OUTSTR_PARAMS[method.name]}) *{OUTSTR_PARAMS[method.name]} = get_unix_buffer( params._str );\n')
 
