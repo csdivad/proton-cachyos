@@ -1624,9 +1624,10 @@ fex_application_profiles = {
 def get_current_cpu_affinity():
     try:
         affinity = os.sched_getaffinity(0)
-        if len(affinity) >= os.cpu_count():
+        cpu_count = os.cpu_count() or 0
+        if not cpu_count or len(affinity) >= cpu_count:
             return ""
-        topo_str = ",".join(map(str, list(affinity)))
+        topo_str = ",".join(map(str, sorted(affinity)))
         return f"{len(affinity)}:{topo_str}"
     except: return ""
 

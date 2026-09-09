@@ -896,7 +896,7 @@ static HANDLE find_ack_event(void)
             WINE_TRACE("Found event %s.\n", wine_dbgstr_w(di->ObjectName.Buffer));
             ret = OpenEventW(SYNCHRONIZE | EVENT_MODIFY_STATE, FALSE, di->ObjectName.Buffer);
             if (!ret)
-                WINE_WARN("Failed to create event, err %lu.\n", GetLastError());
+                WINE_WARN("Failed to open ack event, err %lu.\n", GetLastError());
             break;
         }
         status = NtQueryDirectoryObject(dir, di, sizeof(buffer), TRUE, FALSE, &context, &size);
