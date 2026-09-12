@@ -2004,6 +2004,13 @@ class Session:
         self.check_environment("PROTON_USE_WAYLAND", "wayland")
         self.check_environment("PROTON_PREFER_SDL", "sdlinput")
         self.check_environment("PROTON_USE_SDL", "sdlinput")
+
+        # Sony controllers need hidraw to feed the XInput-backed Steam Input
+        # fallback. Native Xbox controllers continue to use their XInput slot.
+        if (self.env.get("PROTON_STEAMINPUT_FALLBACK") == "1" or
+                self.env.get("PROTON_STEAMINPUT_XINPUT_FALLBACK") == "1"):
+            self.compat_config.discard("sdlinput")
+            self.env.pop("PROTON_DISABLE_HIDRAW", None)
         self.check_environment("PROTON_USE_PIPEWIRE", "pipewire")
         self.check_environment("PROTON_FSR4_INDICATOR", "fsr4hud")
         self.check_environment("PROTON_DLSS_INDICATOR", "dlsshud")

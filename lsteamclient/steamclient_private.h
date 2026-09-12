@@ -47,6 +47,26 @@ void init_rtti( char *base );
 
 #include "steamclient_generated.h"
 
+int steaminput_xinput_fallback_configured(void);
+int steaminput_xinput_fallback_active(void);
+void steaminput_xinput_set_native_configuration( uint16_t native_configuration, int32_t native_count );
+uint16_t steaminput_xinput_get_session_configuration( uint16_t native_configuration );
+int32_t steaminput006_xinput_get_connected_controllers( int32_t native_count, uint64_t *handles );
+uint64_t steaminput006_xinput_register_action_set( uint64_t native_handle, const char *name );
+uint64_t steaminput006_xinput_register_digital_action( uint64_t native_handle, const char *name );
+int steaminput006_xinput_get_digital_action_data( InputDigitalActionData_t *data,
+        uint64_t input_handle, uint64_t action_handle );
+uint64_t steaminput006_xinput_register_analog_action( uint64_t native_handle, const char *name );
+int steaminput006_xinput_get_analog_action_data( InputAnalogActionData_t *data,
+        uint64_t input_handle, uint64_t action_handle );
+int steaminput006_xinput_get_motion_data( InputMotionData_t *data, uint64_t input_handle );
+int steaminput006_xinput_trigger_vibration( uint64_t input_handle, uint16_t left, uint16_t right );
+int steaminput006_xinput_trigger_vibration_extended( uint64_t input_handle, uint16_t left, uint16_t right,
+        uint16_t left_trigger, uint16_t right_trigger );
+int steaminput006_xinput_get_input_type( uint32_t *type, uint64_t input_handle );
+int steaminput006_xinput_get_controller_for_gamepad_index( uint64_t *handle, int32_t index );
+int steaminput006_xinput_get_gamepad_index_for_controller( int32_t *index, uint64_t input_handle );
+
 #ifdef __cplusplus
 }
 #endif
