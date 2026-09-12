@@ -33,4 +33,9 @@ $(OBJ)/.pipewire-i386-post-build:
 $(OBJ)/.pipewire-i386-dist:
 	touch $@
 
+# clang (used for the i686 build in the llvm SDK image) doesn't inline the
+# 8-byte atomics in module-rtp-source on this field alignment and needs
+# libatomic; meson's atomic probe doesn't catch it. Inert for the gcc image.
+PIPEWIRE_i386_LIBFLAGS += -latomic
+
 PIPEWIRE_DEPENDENCY := pipewire
