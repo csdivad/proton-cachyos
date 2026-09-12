@@ -413,6 +413,8 @@ $(eval $(call rules-cmake,spirv-headers,arm64ec,windows))
 ## glslang
 ##
 
+GLSLANG_CMAKE_ARGS = -DENABLE_OPT=OFF
+
 $(eval $(call rules-source,glslang,$(SRCDIR)/glslang))
 $(eval $(call rules-cmake,glslang,i386,unix))
 $(eval $(call rules-cmake,glslang,x86_64,unix))
