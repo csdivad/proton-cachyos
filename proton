@@ -2263,8 +2263,7 @@ class Session:
         if "dxvksarek" in self.compat_config:
             threads = os.cpu_count() - (2 if os.cpu_count() > 4 else (1 if os.cpu_count() > 2 else 0))
             append_to_env_str(self.env, "DXVK_CONFIG", f"dxvk.numCompilerThreads={threads}", ";")
-            append_to_env_str(self.env, "DXVK_CONFIG", f"dxvk.numAsyncThreads={threads}", ";")
-            append_to_env_str(self.env, "DXVK_CONFIG", f"dxvk.numDyasyncThreads={threads}", ";")
+            append_to_env_str(self.env, "DXVK_CONFIG", f"dxvk.numShaderCompilerThreads={threads}", ";")
 
 
         if "__GLVND_DISALLOW_PATCHING" not in self.env:
