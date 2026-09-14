@@ -126,6 +126,10 @@ dist: all
 
 J = $(patsubst -j%,%,$(filter -j%,$(MAKEFLAGS)))
 
+# the per-component recipes pass -j$(SUBJOBS); a bare -j is unbounded for make
+# and fatal for ninja, so default it for builds that don't export it
+SUBJOBS ?= $(if $(J),$(J),$(shell nproc))
+
 include $(SRC)/make/utility.mk
 include $(SRC)/make/rules-source.mk
 include $(SRC)/make/rules-common.mk
