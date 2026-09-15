@@ -1,6 +1,6 @@
 MODULE    = lsteamclient.dll
 UNIXLIB   = lsteamclient.so
-IMPORTS   = user32 ws2_32
+IMPORTS   = user32 ws2_32 xinput
 
 EXTRADEFS = -DSTEAM_API_EXPORTS -Dprivate=public -Dprotected=public
 
