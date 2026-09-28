@@ -1176,6 +1176,15 @@ def handle_thiscall_wrapper(klass, method, out):
 def handle_method_c(klass, method, winclassname, out):
     returns_void = method.result_type.kind == TypeKind.VOID
     returns_record = method.result_type.get_canonical().kind == TypeKind.RECORD
+    is_steaminput = klass.full_name.startswith("ISteamInput_SteamInput")
+    session_config_method = None
+    connected_controllers_method = None
+
+    if is_steaminput and method.name == "Init":
+        session_config_method = next((candidate for candidate in klass.methods
+                if candidate.name == "GetSessionInputConfigurationSettings"), None)
+        connected_controllers_method = next((candidate for candidate in klass.methods
+                if candidate.name == "GetConnectedControllers"), None)
 
     ret = "*" if returns_record else ""
     ret = f'{declspec(method.result_type, ret, "w_")} '
@@ -1200,6 +1209,20 @@ def handle_method_c(klass, method, winclassname, out):
     for name in names[1:]: out(f'        .{name} = {name},\n')
     out(u'    };\n')
 
+    if session_config_method:
+        out(f'    struct {session_config_method.full_name}_params config_params =\n')
+        out(u'    {\n')
+        out(u'        .u_iface = _this->u_iface,\n')
+        out(u'    };\n')
+
+    if connected_controllers_method:
+        out(u'    uint64_t native_handles[16] = {0};\n')
+        out(f'    struct {connected_controllers_method.full_name}_params controller_params =\n')
+        out(u'    {\n')
+        out(u'        .u_iface = _this->u_iface,\n')
+        out(u'        .handlesOut = native_handles,\n')
+        out(u'    };\n')
+
     out(u'    TRACE("%p\\n", _this);\n')
 
     # Some games pass pointers to the data in PE modules which have no access. Access violation is handled
@@ -1210,7 +1233,54 @@ def handle_method_c(klass, method, winclassname, out):
         if pretouch is not None:
             out(pretouch.format(p.spelling))
 
+    steaminput_hooks = {
+        "GetDigitalActionData":
+            "    if (steaminput006_xinput_get_digital_action_data( _ret, inputHandle, digitalActionHandle )) return _ret;\n",
+        "GetAnalogActionData":
+            "    if (steaminput006_xinput_get_analog_action_data( _ret, inputHandle, analogActionHandle )) return _ret;\n",
+        "GetMotionData":
+            "    if (steaminput006_xinput_get_motion_data( _ret, inputHandle )) return _ret;\n",
+        "TriggerVibration":
+            "    if (steaminput006_xinput_trigger_vibration( inputHandle, usLeftSpeed, usRightSpeed )) return;\n",
+        "TriggerVibrationExtended":
+            "    if (steaminput006_xinput_trigger_vibration_extended( inputHandle, usLeftSpeed, usRightSpeed,\n"
+            "            usLeftTriggerSpeed, usRightTriggerSpeed )) return;\n",
+        "GetInputTypeForHandle":
+            "    if (steaminput006_xinput_get_input_type( &params._ret, inputHandle )) return params._ret;\n",
+        "GetGamepadIndexForController":
+            "    if (steaminput006_xinput_get_gamepad_index_for_controller( &params._ret, ulinputHandle )) return params._ret;\n",
+        "GetControllerForGamepadIndex":
+            "    if (steaminput006_xinput_get_controller_for_gamepad_index( &params._ret, nIndex )) return params._ret;\n",
+    }
+    if is_steaminput and method.name in steaminput_hooks:
+        out(steaminput_hooks[method.name])
+
     out(f'    STEAMCLIENT_CALL( {method.full_name}, &params );\n')
+    if is_steaminput:
+        if method.name == "Init":
+            if connected_controllers_method:
+                out(u'    if (steaminput_xinput_fallback_configured())\n')
+                out(u'    {\n')
+                out(f'        STEAMCLIENT_CALL( {connected_controllers_method.full_name}, &controller_params );\n')
+                if session_config_method:
+                    out(f'        STEAMCLIENT_CALL( {session_config_method.full_name}, &config_params );\n')
+                    out(u'        steaminput_xinput_set_native_configuration( config_params._ret, controller_params._ret );\n')
+                else:
+                    out(u'        steaminput_xinput_set_native_configuration( 0, controller_params._ret );\n')
+                out(u'        if (steaminput_xinput_fallback_active()) params._ret = TRUE;\n')
+                out(u'    }\n')
+            else:
+                out(u'    if (steaminput_xinput_fallback_configured()) params._ret = TRUE;\n')
+        elif method.name == "GetConnectedControllers":
+            out(u'    params._ret = steaminput006_xinput_get_connected_controllers( params._ret, handlesOut );\n')
+        elif method.name == "GetSessionInputConfigurationSettings":
+            out(u'    params._ret = steaminput_xinput_get_session_configuration( params._ret );\n')
+        elif method.name == "GetActionSetHandle":
+            out(u'    params._ret = steaminput006_xinput_register_action_set( params._ret, pszActionSetName );\n')
+        elif method.name == "GetDigitalActionHandle":
+            out(u'    params._ret = steaminput006_xinput_register_digital_action( params._ret, pszActionName );\n')
+        elif method.name == "GetAnalogActionHandle":
+            out(u'    params._ret = steaminput006_xinput_register_analog_action( params._ret, pszActionName );\n')
     if method.name in OUTSTR_PARAMS and OUTSTR_PARAMS[method.name] in names:
         out(f'    if ({OUTSTR_PARAMS[method.name]}) *{OUTSTR_PARAMS[method.name]} = get_unix_buffer( params._str );\n')
 
