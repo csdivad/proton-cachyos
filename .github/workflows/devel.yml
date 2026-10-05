@@ -39,5 +39,5 @@ jobs:
     needs: version
     uses: ./.github/workflows/_job_build.yml
     with:
-      name: ${{ needs.version.outputs.full_desc }}-${{ needs.version.outputs.branch }}
+      name: ${{ needs.version.outputs.full_desc }}-${{ needs.version.outputs.branch }}-EXPERIMENTAL
 
