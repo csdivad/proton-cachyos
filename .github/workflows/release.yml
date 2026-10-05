@@ -17,6 +17,7 @@ jobs:
     uses: ./.github/workflows/_job_build.yml
     with:
       name: ${{ github.ref_name }}
+      omit-frame-pointers: true
 
   release:
     name: Release
