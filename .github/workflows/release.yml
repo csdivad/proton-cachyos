@@ -16,7 +16,7 @@ jobs:
     name: Build
     uses: ./.github/workflows/_job_build.yml
     with:
-      name: ${{ github.ref_name }}
+      name: ${{ github.ref_name }}-EXPERIMENTAL
       omit-frame-pointers: true
 
   release:
@@ -37,11 +37,16 @@ jobs:
       shell: bash
       run: |
         if gh release view "${{ github.ref_name }}" --repo "${{ github.server_url }}/${{ github.repository }}" &>/dev/null; then
-          echo "Release ${{ github.ref_name }} already exists. Skipping creation."
+          gh release edit "${{ github.ref_name }}" \
+            --prerelease \
+            --latest=false \
+            --title "${{ github.ref_name }}-EXPERIMENTAL Released" \
+            --repo "${{ github.server_url }}/${{ github.repository }}"
         else
           gh release create "${{ github.ref_name }}" \
-            --latest \
-            --title "${{ github.ref_name }} Released" \
+            --prerelease \
+            --latest=false \
+            --title "${{ github.ref_name }}-EXPERIMENTAL Released" \
             --notes-from-tag \
             --verify-tag \
             --repo "${{ github.server_url }}/${{ github.repository }}"
@@ -55,7 +60,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: ${{ github.ref_name }}
+          - name: ${{ github.ref_name }}-EXPERIMENTAL
     uses: ./.github/workflows/_job_upload.yml
     with:
       version: ${{ github.ref_name }}
