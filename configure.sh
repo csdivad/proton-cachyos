@@ -115,6 +115,10 @@ function configure() {
     info "No build name specified, using default: $build_name"
   fi
 
+  if [[ $build_name != *EXPERIMENTAL* ]]; then
+    build_name="${build_name}-EXPERIMENTAL"
+  fi
+
   if [[ ${build_name,,} == *proton* ]]; then
     internal_tool_name=${build_name}
   else
