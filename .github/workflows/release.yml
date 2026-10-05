@@ -6,6 +6,7 @@ on:
   push:
     tags:
       - 'GE-Proton*-*'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.ref_name }}
