@@ -220,6 +220,10 @@ WAYLAND_PROTOCOLS_MESON_ARGS := \
 $(eval $(call rules-source,wayland-protocols,$(SRCDIR)/wayland-protocols))
 $(eval $(call rules-meson,wayland-protocols,aarch64,unix))
 
+$(OBJ)/.wayland-protocols-post-source:
+	patch -d "$(WAYLAND_PROTOCOLS_SRC)" -Np1 -i "$(realpath $(SRCDIR)/patches/wayland-protocols/0001-scanner-compat.patch)"
+	touch $@
+
 
 ##
 ## libpcap
