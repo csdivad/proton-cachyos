@@ -32,8 +32,6 @@ apply_all_in_dir() {
     apply_patch "../patches/dxvk/black-desert-keep-fullscreen-on-focus-loss.patch"
     # Assassin's Creed DX10: preserve fullscreen presentation across Alt+Tab.
     apply_patch "../patches/dxvk/assassins-creed-keep-fullscreen-on-focus-loss.patch"
-    # HDR colorspaces require an instance extension, not a device extension.
-    apply_patch "../patches/dxvk/dxvk-enable-swapchain-colorspace-on-instance.patch"
     popd
 
     pushd vkd3d-proton
