@@ -43,7 +43,7 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --latest \
             --title "${{ github.ref_name }} Released" \
-            --notes-from-tag \
+            --generate-notes \
             --verify-tag \
             --repo "${{ github.server_url }}/${{ github.repository }}"
         fi
