@@ -48,8 +48,9 @@ jobs:
             --prerelease \
             --latest=false \
             --title "${{ github.ref_name }}-EXPERIMENTAL Released" \
-            --notes-from-tag \
-            --verify-tag
+            --generate-notes \
+            --verify-tag \
+            --repo "${{ github.server_url }}/${{ github.repository }}"
         fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
