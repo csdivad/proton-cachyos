@@ -23,10 +23,12 @@ standalone source against SteamRT4 PipeWire 1.4.2 headers, not this
 submodule's SPA headers. No PCM routing logic is changed by that adjustment.
 ---
 
+diff --git a/pcm_pipewire.c b/pcm_pipewire.c
+index 7ac9d5b..52589b1 100644
 --- a/pcm_pipewire.c
 +++ b/pcm_pipewire.c
-@@ -55,6 +55,8 @@
- 	unsigned int xrun_detected:1;
+@@ -54,6 +54,8 @@ typedef struct {
+ 	unsigned int draining:1;
  	unsigned int hw_params_changed:1;
  	unsigned int negotiated:1;
 +	unsigned int aux_channels:1;
@@ -34,7 +36,7 @@ submodule's SPA headers. No PCM routing logic is changed by that adjustment.
  
  	snd_pcm_uframes_t hw_ptr;
  	snd_pcm_uframes_t boundary;
-@@ -572,7 +574,7 @@
+@@ -571,7 +573,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
  				io->stream == SND_PCM_STREAM_PLAYBACK ?
  				PW_DIRECTION_OUTPUT :
  				PW_DIRECTION_INPUT,
@@ -43,7 +45,7 @@ submodule's SPA headers. No PCM routing logic is changed by that adjustment.
  				PW_STREAM_FLAG_AUTOCONNECT |
  				PW_STREAM_FLAG_MAP_BUFFERS |
  				PW_STREAM_FLAG_RT_PROCESS,
-@@ -776,7 +778,15 @@
+@@ -774,7 +776,15 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
  	case SPA_MEDIA_SUBTYPE_raw:
  		pw->requested.info.raw.channels = io->channels;
  		pw->requested.info.raw.rate = io->rate;
@@ -60,7 +62,7 @@ submodule's SPA headers. No PCM routing logic is changed by that adjustment.
  		fmt_str = spa_type_audio_format_to_short_name(pw->requested.info.raw.format);
  		pw->format = pw->requested;
  		break;
-@@ -924,12 +934,11 @@
+@@ -922,12 +932,11 @@ static int snd_pcm_pipewire_set_chmap(snd_pcm_ioplug_t * io,
  		return -ENOTSUP;
  
  	for (i = 0; i < map->channels; i++) {
@@ -75,7 +77,7 @@ submodule's SPA headers. No PCM routing logic is changed by that adjustment.
  	}
  	return 1;
  }
-@@ -1283,6 +1292,15 @@
+@@ -1281,6 +1290,15 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
  	if (!pw)
  		return -ENOMEM;
  
@@ -91,7 +93,7 @@ submodule's SPA headers. No PCM routing logic is changed by that adjustment.
  	pw->props = props;
  	pw->fd = -1;
  	pw->io.poll_fd = -1;
-@@ -1458,6 +1476,20 @@
+@@ -1456,6 +1474,20 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
  					pw_properties_set(props, PW_KEY_TARGET_OBJECT, str);
  			continue;
  		}
