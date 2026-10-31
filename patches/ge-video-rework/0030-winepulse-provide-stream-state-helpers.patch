@@ -1,0 +1,45 @@
+From: csdivad <csdivad@gmail.com>
+Date: Sat, 31 Oct 2026 10:20:00 +0000
+Subject: [PATCH] winepulse: provide the stream-state helpers the media rework
+ calls
+
+The media-rework patches call pulse_stream_ready() and pulse_stream_haptic(),
+but both helpers were defined by the removed proton-ds5-haptic series, so
+winepulse failed with implicit declarations (pulse.c:1355, 1914) and an
+unused-function error for pulse_cond_timedwait_ms.
+
+Define them with upstream-equivalent semantics - "ready" means the PA stream
+exists and is READY, "haptic" is always FALSE because there is no DualSense
+routing any more - and mark the now-unused condition-variable helper.
+
+Fork-local: keeps the wine media-rework stack building without DualSense support.
+---
+--- a/dlls/winepulse.drv/pulse.c
++++ b/dlls/winepulse.drv/pulse.c
+@@ -179,7 +179,7 @@
+     return pthread_cond_wait(&pulse_cond, &pulse_mutex);
+ }
+ 
+-static int pulse_cond_timedwait_ms(unsigned int timeout_ms)
++static int __attribute__((unused)) pulse_cond_timedwait_ms(unsigned int timeout_ms)
+ {
+     struct timespec ts;
+ 
+@@ -493,6 +493,17 @@
+     return pa_stream_get_state(stream->stream) == PA_STREAM_READY;
+ }
+ 
++/* No DualSense stack: the media-rework patches still call these helpers. */
++static BOOL pulse_stream_ready(struct pulse_stream *stream)
++{
++    return stream && stream->stream && pa_stream_get_state(stream->stream) == PA_STREAM_READY;
++}
++
++static BOOL pulse_stream_haptic(struct pulse_stream *stream)
++{
++    return FALSE;
++}
++
+ static HRESULT pulse_connect(const char *name)
+ {
+     pa_context_state_t state;
