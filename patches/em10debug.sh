@@ -222,12 +222,6 @@ apply_all_in_dir() {
     echo "WINE: -HOTFIX- Implement GE-Proton ffmpeg + winedmo only video playback rework patches"
     apply_all_in_dir "../patches/ge-video-rework/"
 
-    # https://github.com/xzn/proton-ds5-haptic
-    echo "WINE: -HOTFIX- Add proton DS5 patches"
-    for patch in ../patches/proton-ds5-haptic/*.patch; do
-        apply_patch "$patch"
-    done
-
     echo "WINE: RUN AUTOCONF TOOLS/MAKE_REQUESTS"
     autoreconf -f
     ./tools/make_requests
