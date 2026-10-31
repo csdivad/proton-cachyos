@@ -44,7 +44,6 @@ apply_all_in_dir() {
     pushd d7vk
     git reset --hard HEAD
     git clean -xdf
-    apply_patch "../patches/d7vk/d7vk-allow-avx-with-clang.patch"
     popd
 
     pushd openvr
