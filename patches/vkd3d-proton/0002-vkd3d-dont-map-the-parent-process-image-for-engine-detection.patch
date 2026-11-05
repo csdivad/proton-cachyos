@@ -1,4 +1,4 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From 41301fe207b8f63b80dd9e8d41a9ece01b35ec6b Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
 Date: Mon, 19 Oct 2026 12:00:00 -0600
 Subject: [PATCH] vkd3d: Don't read the parent process image for engine
@@ -15,26 +15,35 @@ non-Steam launches such as the RSI launcher are affected since
 GE-Proton11-7, which was the first release with that commit.
 
 Drop the parent-process probe. Unreal Engine detection falls back to the
-game's own image and the existing filesystem checks, as before 142d72f.
+game's own image, the existing filesystem checks and (since d0890b2d)
+the numeric product-version fallback on the game's own executable.
+
+Regenerated against vkd3d-proton d0890b2d: upstream added a
+known_unreal_engine parameter to get_engine_version_from_exe(), so the
+parent-probe hunk no longer applied; the removed probe is unchanged in
+behaviour.
 
 https://github.com/GloriousEggroll/proton-ge-custom/issues/858
 https://github.com/HansKristian-Work/vkd3d-proton/issues/3348
 ---
+ libs/vkd3d-common/platform.c | 27 ++++-----------------------
+ 1 file changed, 4 insertions(+), 23 deletions(-)
+
 diff --git a/libs/vkd3d-common/platform.c b/libs/vkd3d-common/platform.c
-index d000e880..e09baa83 100644
+index e93cbf7..55359b7 100644
 --- a/libs/vkd3d-common/platform.c
 +++ b/libs/vkd3d-common/platform.c
-@@ -273,8 +273,6 @@ enum vkd3d_application_engine_class vkd3d_get_engine_version(uint32_t *major, ui
- {
+@@ -289,8 +289,6 @@ enum vkd3d_application_engine_class vkd3d_get_engine_version(uint32_t *major, ui
      WCHAR exe_path[VKD3D_PATH_MAX], path[VKD3D_PATH_MAX];
      enum vkd3d_application_engine_class engine_class;
+     const WCHAR *name;
 -    HMODULE ntdll;
 -    DWORD size;
  
      *major = *minor = *patch = 0;
      GetModuleFileNameW(NULL, exe_path, VKD3D_PATH_MAX);
-@@ -293,27 +291,10 @@ enum vkd3d_application_engine_class vkd3d_get_engine_version(uint32_t *major, ui
-     if ((engine_class = get_engine_version_from_exe(path, major, minor, patch)))
+@@ -310,27 +308,10 @@ enum vkd3d_application_engine_class vkd3d_get_engine_version(uint32_t *major, ui
+     if ((engine_class = get_engine_version_from_exe(path, major, minor, patch, false)))
          return engine_class;
  
 -    if ((ntdll = GetModuleHandleA("ntdll.dll")))
@@ -52,7 +61,7 @@ index d000e880..e09baa83 100644
 -        {
 -            size = ARRAY_SIZE(path);
 -            if (QueryFullProcessImageNameW(parent, 0, path, &size))
--                engine_class = get_engine_version_from_exe(path, major, minor, patch);
+-                engine_class = get_engine_version_from_exe(path, major, minor, patch, false);
 -            CloseHandle(parent);
 -            if (engine_class)
 -                return engine_class;
@@ -65,3 +74,6 @@ index d000e880..e09baa83 100644
  
      /* Dubious checks where we spelunk the filesystem. */
  
+-- 
+2.53.0
+
