@@ -693,11 +693,6 @@ apply_all_in_dir() {
     # AION 2 (#877): deactivate when the host focus loss cannot set the desktop foreground
     apply_patch "../patches/wine-hotfixes/pending/win32u-deactivate-window-when-host-focus-loss-fails.patch"
 
-    # PROTON_PREFER_SDL / Steam Deck: Sony pads were dropped by both hidraw and SDL
-    apply_patch "../patches/wine-hotfixes/pending/winebus-sdl-keep-sony-pads-when-hidraw-is-disabled.patch"
-    # Bluetooth DualShock 4 presented as a wired one, like the DualSense
-    apply_patch "../patches/wine-hotfixes/pending/winebus-expose-bluetooth-dualshock4-as-usb.patch"
-    apply_patch "../patches/wine-hotfixes/pending/winepulse-bluetooth-dualshock4-audio.patch"
     apply_patch "../patches/wine-hotfixes/pending/winedmo-disable-d3d11-aware-for-phantom-blade-zero.patch"
     # FlatOut 2 (#939): XInput deadlocked when first called with the loader lock held
     apply_patch "../patches/wine-hotfixes/pending/xinput-dont-wait-for-update-thread-under-loader-lock.patch"
