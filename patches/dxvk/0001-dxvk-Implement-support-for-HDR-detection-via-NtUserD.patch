@@ -1,7 +1,7 @@
-From 644d0a65b69c159369e31baf734a3fb005ff4968 Mon Sep 17 00:00:00 2001
+From f770a93b113172d3d8ead6717f2ea7cdf1a9bf5e Mon Sep 17 00:00:00 2001
 From: Etaash Mathamsetty
  <45927311+Etaash-mathamsetty@users.noreply.github.com>
-Date: Fri, 11 Sep 2026 01:15:19 +0200
+Date: Fri, 6 Nov 2026 15:07:52 +0000
 Subject: [PATCH] [dxvk] Implement support for HDR detection via
  NtUserDisplayConfigGetDeviceInfo.
 
@@ -55,10 +55,10 @@ index 3a31a23c..3a492b51 100644
 \ No newline at end of file
 +}
 diff --git a/src/dxgi/dxgi_options.cpp b/src/dxgi/dxgi_options.cpp
-index d83342e2..60d5f091 100644
+index 2febb240..16ae14d6 100644
 --- a/src/dxgi/dxgi_options.cpp
 +++ b/src/dxgi/dxgi_options.cpp
-@@ -198,9 +198,16 @@ namespace dxvk {
+@@ -193,9 +193,16 @@ namespace dxvk {
      }
  
      this->enableHDR = config.getOption<bool>("dxgi.enableHDR", env::getEnvVar("DXVK_HDR") == "1");
@@ -143,20 +143,20 @@ index 8814f5cb..bb0af102 100644
      auto refreshPeriod = computeRefreshPeriod(
        activeWsiMode.refreshRate.numerator,
 diff --git a/src/dxgi/dxgi_swapchain.cpp b/src/dxgi/dxgi_swapchain.cpp
-index 71e69f98..fa2399cb 100644
+index b7d0f76b..7259b967 100644
 --- a/src/dxgi/dxgi_swapchain.cpp
 +++ b/src/dxgi/dxgi_swapchain.cpp
-@@ -50,6 +50,9 @@ namespace dxvk {
+@@ -49,6 +49,9 @@ namespace dxvk {
+     // Ensure that RGBA16 swap chains are scRGB if supported
      UpdateSourceSize(m_desc.Width, m_desc.Height);
      UpdateColorSpace(m_desc.Format, m_colorSpace);
- 
++
 +    const DxgiOptions* options = m_factory->GetOptions();
 +    m_supportsHDR = wsi::supportsHDR(m_monitor) && !options->disableHDR;
-+
-     // Somewhat hacky way to determine whether to forward the
-     // display refresh rate in windowed mode even with a sync
-     // interval of 1.
-@@ -1028,7 +1031,10 @@ namespace dxvk {
+   }
+   
+   
+@@ -1020,7 +1023,10 @@ namespace dxvk {
  
      // Only expose HDR10 color space if HDR option is enabled
      if (ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020)
@@ -168,7 +168,7 @@ index 71e69f98..fa2399cb 100644
  
      return false;
    }
-@@ -1054,8 +1060,13 @@ namespace dxvk {
+@@ -1046,8 +1052,13 @@ namespace dxvk {
  
      // If this was a colorspace other than our current one,
      // punt us into that one on the DXGI output.
@@ -184,7 +184,7 @@ index 71e69f98..fa2399cb 100644
      return hr;
    }
 diff --git a/src/dxgi/dxgi_swapchain.h b/src/dxgi/dxgi_swapchain.h
-index c8da01d0..cf4ba411 100644
+index 7becd55c..ff7ab982 100644
 --- a/src/dxgi/dxgi_swapchain.h
 +++ b/src/dxgi/dxgi_swapchain.h
 @@ -200,6 +200,7 @@ namespace dxvk {
@@ -395,5 +395,5 @@ index f1fae3f1..7da0cd7a 100644
  
      virtual void getWindowSize(
 -- 
-2.55.0
+2.53.0
 
