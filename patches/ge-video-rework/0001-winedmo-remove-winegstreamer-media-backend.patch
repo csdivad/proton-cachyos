@@ -12571,14 +12571,21 @@ index df84fba2b43a31b09764cdb7431362f24a9ee9b1..a977b16cd6fc3d9ef98aafb4b71fbe1e
  
      if (FAILED(hr = MFCreateMediaType(&decoder->stream_type)))
          goto failed;
-@@ -1681,24 +2289,13 @@ static HRESULT video_decoder_create_with_types(const GUID *const *input_types, U
+@@ -1681,31 +2289,13 @@ static HRESULT video_decoder_create_with_types(const GUID *const *input_types, U
                      &MFT_DECODER_EXPOSE_OUTPUT_TYPES_IN_NATIVE_ORDER, FALSE)))
          goto failed;
  
 -    {
 -        const char *sgi;
--        if ((sgi = getenv("SteamGameId")) && ((!strcmp(sgi, "2009100")) || (!strcmp(sgi, "2555360"))))
+-        if ((sgi = getenv("SteamGameId")) && (
+-                !strcmp(sgi, "2009100")
+-                || !strcmp(sgi, "2555360")
+-                || !strcmp(sgi, "4115450")
+-            ))
+-        {
+-            FIXME("HACK: setting MF_SA_D3D11_AWARE to FALSE.\n");
 -            IMFAttributes_SetUINT32(decoder->attributes, &MF_SA_D3D11_AWARE, FALSE);
+-        }
 -    }
 -
      if (FAILED(hr = MFCreateAttributes(&decoder->output_attributes, 0)))
