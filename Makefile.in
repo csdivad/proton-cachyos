@@ -506,9 +506,43 @@ $(eval $(call rules-makedep,steamexe,aarch64))
 ## piper
 ##
 
+# piper-phonemize downloads its onnxruntime build from microsoft/onnxruntime's
+# GitHub releases; those assets disappeared with the repository on 2026-11-17.
+# Fetch the same Microsoft 1.14.1 binaries from NuGet instead (the package
+# carries build/native/include/*.h and runtimes/linux-*/native/libonnxruntime.so)
+# and hand piper the prefetched tree through ONNXRUNTIME_DIR.
+PIPER_ONNXRUNTIME_VERSION := 1.14.1
+PIPER_ONNXRUNTIME_URL := https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/$(PIPER_ONNXRUNTIME_VERSION)/microsoft.ml.onnxruntime.$(PIPER_ONNXRUNTIME_VERSION).nupkg
+PIPER_ONNXRUNTIME_SHA256 := 3a277421efce94b5f91f4a5dc8efc1add99b4c01f547279d81098ffb4fafbb6d
+
+PIPER_x86_64_ONNXRUNTIME_DIR := $(OBJ)/onnxruntime-linux-x64-$(PIPER_ONNXRUNTIME_VERSION)
+PIPER_aarch64_ONNXRUNTIME_DIR := $(OBJ)/onnxruntime-linux-arm64-$(PIPER_ONNXRUNTIME_VERSION)
+
+PIPER_x86_64_CMAKE_ARGS := -DONNXRUNTIME_DIR:PATH=$(PIPER_x86_64_ONNXRUNTIME_DIR)
+PIPER_aarch64_CMAKE_ARGS := -DONNXRUNTIME_DIR:PATH=$(PIPER_aarch64_ONNXRUNTIME_DIR)
+
 $(eval $(call rules-source,piper,$(SRCDIR)/piper))
 $(eval $(call rules-cmake,piper,x86_64,unix))
 $(eval $(call rules-cmake,piper,aarch64,unix))
+
+$(OBJ)/.piper-post-source:
+	patch -d "$(PIPER_SRC)" -Np1 -i "$(realpath $(SRCDIR)/patches/piper/0001-piper-phonemize-forward-onnxruntime-dir.patch)"
+	touch $@
+
+# The piper_phonemize ExternalProject is configured with the onnxruntime path
+# now; drop its stamp/build tree on the first fetch so an incremental build
+# reconfigures it instead of reusing a cache that still points at the vanished
+# GitHub download (ExternalProject does not re-run configure on CMAKE_ARGS).
+$(PIPER_x86_64_ONNXRUNTIME_DIR)/.ready:
+	if [ -n "$(PIPER_x86_64_OBJ)" ]; then rm -rf "$(PIPER_x86_64_OBJ)/p"; fi
+	sh "$(realpath $(SRCDIR))/make/fetch-onnxruntime.sh" "$(PIPER_x86_64_ONNXRUNTIME_DIR)" x86_64 $(PIPER_ONNXRUNTIME_VERSION) $(PIPER_ONNXRUNTIME_SHA256) "$(PIPER_ONNXRUNTIME_URL)"
+
+$(PIPER_aarch64_ONNXRUNTIME_DIR)/.ready:
+	if [ -n "$(PIPER_aarch64_OBJ)" ]; then rm -rf "$(PIPER_aarch64_OBJ)/p"; fi
+	sh "$(realpath $(SRCDIR))/make/fetch-onnxruntime.sh" "$(PIPER_aarch64_ONNXRUNTIME_DIR)" aarch64 $(PIPER_ONNXRUNTIME_VERSION) $(PIPER_ONNXRUNTIME_SHA256) "$(PIPER_ONNXRUNTIME_URL)"
+
+$(OBJ)/.piper-x86_64-configure: $(PIPER_x86_64_ONNXRUNTIME_DIR)/.ready
+$(OBJ)/.piper-aarch64-configure: $(PIPER_aarch64_ONNXRUNTIME_DIR)/.ready
 
 $(OBJ)/.piper-x86_64-post-build:
 	mkdir -p $(PIPER_x86_64_DST)/lib/$(x86_64-unix_TARGET)

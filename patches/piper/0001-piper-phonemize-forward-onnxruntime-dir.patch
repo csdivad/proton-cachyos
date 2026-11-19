@@ -1,0 +1,26 @@
+Forward a pre-fetched ONNXRUNTIME_DIR to the piper-phonemize external
+project, so the Proton build can supply onnxruntime itself instead of
+piper-phonemize downloading it from microsoft/onnxruntime's GitHub
+releases (that repository disappeared on 2026-11-17).
+
+The build feeds this from the nuget.org Microsoft.ML.OnnxRuntime package
+(the same Microsoft 1.14.1 binaries); see the piper rules in Makefile.in.
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -62,11 +62,14 @@ endif()
+ 
+ if(NOT DEFINED PIPER_PHONEMIZE_DIR)
+   set(PIPER_PHONEMIZE_DIR "${CMAKE_CURRENT_BINARY_DIR}/pi")
++  if(DEFINED ONNXRUNTIME_DIR)
++    set(PIPER_PHONEMIZE_ONNXRUNTIME_ARGS -DONNXRUNTIME_DIR:PATH=${ONNXRUNTIME_DIR})
++  endif()
+   ExternalProject_Add(
+     piper_phonemize_external
+     PREFIX "${CMAKE_CURRENT_BINARY_DIR}/p"
+     URL "https://github.com/shaunren/piper-phonemize/archive/refs/heads/pic.zip"
+-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${PIPER_PHONEMIZE_DIR}
++    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${PIPER_PHONEMIZE_DIR} ${PIPER_PHONEMIZE_ONNXRUNTIME_ARGS}
+   )
+   add_dependencies(piper piper_phonemize_external)
+   add_dependencies(test_piper piper_phonemize_external)
