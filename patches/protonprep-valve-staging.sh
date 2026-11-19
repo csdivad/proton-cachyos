@@ -181,18 +181,25 @@ apply_all_in_dir() {
     -W ntdll-Serial_Port_Detection \
     -W server-PeekMessage \
     -W msxml3-FreeThreadedXMLHTTP60 \
+    -W ntdll-ForceBottomUpAlloc \
     -W ntdll-NtDevicePath \
+    -W user32-rawinput-mouse \
     -W user32-recursive-activation \
     -W d3dx9_36-D3DXStubs \
     -W wined3d-zero-inf-shaders \
     -W ntdll-RtlQueryPackageIdentity \
     -W vkd3d-latest \
     -W loader-KeyboardLayouts \
+    -W ntdll-Syscall_Emulation \
+    -W ntdll_reg_flush \
     -W ntdll-Hide_Wine_Exports \
     -W kernel32-Debugger \
     -W ntdll-ext4-case-folder \
     -W winex11-Window_Style \
     -W wininet-Cleanup \
+    -W wintrust-WTHelperGetProvCertFromChain \
+    -W winex11-ime-check-thread-data \
+    -W winex11-Fixed-scancodes \
     -W winedevice-Default_Drivers \
     -W Staging
 
