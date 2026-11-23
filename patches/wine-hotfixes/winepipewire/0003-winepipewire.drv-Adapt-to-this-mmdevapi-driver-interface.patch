@@ -6,8 +6,7 @@ Subject: [PATCH] winepipewire.drv: Adapt to this mmdevapi driver interface.
 M0n7y5's driver targets the newer mmdevapi in which drivers are plain
 unixlibs started with main_loop_start/main_loop_stop and pace their own
 streams. This tree still loads audio drivers as PE modules, runs one
-blocking main_loop call and a timer_loop thread per stream, and GE's
-DualSense patches extend some of the parameter structs.
+blocking main_loop call and a timer_loop thread per stream.
 
 - Build a PE module, like winepulse.drv.
 - main_loop starts the PipeWire thread loop and signals the event.
@@ -15,14 +14,19 @@ DualSense patches extend some of the parameter structs.
   main_loop_stop goes away.
 - timer_loop returns at once; the driver's period timers already pace
   and signal the streams. release_stream reaps that thread.
-- Match the 32-bit release_stream, get_endpoint_ids, create_stream,
-  is_format_supported and get_mix_format layouts of this mmdevapi.
+- Add the 32-bit main_loop thunk and the release_stream timer_thread.
 - Define create_unix_thread(), which newer mmdevapi/unixlib.h provides.
 - Ignore -Wvla around the SPA headers, the Wine build uses -Werror.
+
+This fork does not carry GE's DualSense (proton-ds5-haptic) stack, so
+the mmdevapi parameter structs have no delta/num_removed/more_data or
+sony_windows_audio_mode members; the series' hotplug and Sony controller
+audio patches are not applied here.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
 diff --git a/dlls/winepipewire.drv/Makefile.in b/dlls/winepipewire.drv/Makefile.in
+index 6049244..d533587 100644
 --- a/dlls/winepipewire.drv/Makefile.in
 +++ b/dlls/winepipewire.drv/Makefile.in
 @@ -1,4 +1,6 @@
@@ -33,6 +37,7 @@ diff --git a/dlls/winepipewire.drv/Makefile.in b/dlls/winepipewire.drv/Makefile.
  UNIX_CFLAGS  = $(PIPEWIRE_CFLAGS) $(UDEV_CFLAGS)
  
 diff --git a/dlls/winepipewire.drv/pipewire.c b/dlls/winepipewire.drv/pipewire.c
+index 7e7ac1c..aef779e 100644
 --- a/dlls/winepipewire.drv/pipewire.c
 +++ b/dlls/winepipewire.drv/pipewire.c
 @@ -60,12 +60,16 @@
@@ -52,7 +57,7 @@ diff --git a/dlls/winepipewire.drv/pipewire.c b/dlls/winepipewire.drv/pipewire.c
  
  #include "ntstatus.h"
  #define WIN32_NO_STATUS
-@@ -83,6 +87,23 @@
+@@ -83,6 +87,23 @@ DEFINE_GUID(GUID_NULL,0,0,0,0,0,0,0,0,0,0,0);
  
  #include "../mmdevapi/unixlib.h"
  
@@ -76,7 +81,7 @@ diff --git a/dlls/winepipewire.drv/pipewire.c b/dlls/winepipewire.drv/pipewire.c
  #ifdef HAVE_LIBUDEV_H
  #include <libudev.h>
  #endif
-@@ -1022,36 +1043,21 @@
+@@ -1022,36 +1043,21 @@ out:
      return STATUS_SUCCESS;
  }
  
@@ -127,7 +132,7 @@ diff --git a/dlls/winepipewire.drv/pipewire.c b/dlls/winepipewire.drv/pipewire.c
      return STATUS_SUCCESS;
  }
  
-@@ -3200,6 +3206,13 @@
+@@ -3200,6 +3206,13 @@ static NTSTATUS pipewire_release_stream(void *args)
      struct pipewire_stream *stream = handle_get_stream(params->stream);
      struct pipewire_period *dead_period = NULL;
  
@@ -141,7 +146,7 @@ diff --git a/dlls/winepipewire.drv/pipewire.c b/dlls/winepipewire.drv/pipewire.c
      pw_thread_loop_lock(pw_loop_global);
      TRACE("stream %p.\n", stream);
      {
-@@ -4380,14 +4393,14 @@
+@@ -4380,14 +4393,14 @@ const unixlib_entry_t __wine_unix_call_funcs[] =
  {
      pipewire_process_attach,
      pipewire_process_detach,
@@ -158,52 +163,7 @@ diff --git a/dlls/winepipewire.drv/pipewire.c b/dlls/winepipewire.drv/pipewire.c
      pipewire_get_render_buffer,
      pipewire_release_render_buffer,
      pipewire_get_capture_buffer,
-@@ -4443,18 +4456,26 @@
-         HRESULT result;
-         unsigned int num;
-         unsigned int default_idx;
-+        BOOL delta;
-+        unsigned int num_removed;
-+        BOOL more_data;
-     } *params32 = args;
-     struct get_endpoint_ids_params params =
-     {
-         .flow = params32->flow,
-         .endpoints = ULongToPtr(params32->endpoints),
--        .size = params32->size
-+        .size = params32->size,
-+        .delta = params32->delta,
-+        .more_data = params32->more_data
-     };
-     pipewire_get_endpoint_ids(&params);
-     params32->size = params.size;
-     params32->result = params.result;
-     params32->num = params.num;
-     params32->default_idx = params.default_idx;
-+    params32->delta = params.delta;
-+    params32->num_removed = params.num_removed;
-+    params32->more_data = params.more_data;
-     return STATUS_SUCCESS;
- }
- 
-@@ -4473,6 +4494,7 @@
-         HRESULT result;
-         PTR32 channel_count;
-         PTR32 stream;
-+        BOOL sony_windows_audio_mode;
-     } *params32 = args;
-     struct create_stream_params params =
-     {
-@@ -4485,23 +4507,39 @@
-         .period = params32->period,
-         .fmt = ULongToPtr(params32->fmt),
-         .channel_count = ULongToPtr(params32->channel_count),
--        .stream = ULongToPtr(params32->stream)
-+        .stream = ULongToPtr(params32->stream),
-+        .sony_windows_audio_mode = params32->sony_windows_audio_mode
-     };
-     pipewire_create_stream(&params);
-     params32->result = params.result;
+@@ -4492,16 +4505,31 @@ static NTSTATUS pipewire_wow64_create_stream(void *args)
      return STATUS_SUCCESS;
  }
  
@@ -235,38 +195,7 @@ diff --git a/dlls/winepipewire.drv/pipewire.c b/dlls/winepipewire.drv/pipewire.c
      };
      pipewire_release_stream(&params);
      params32->result = params.result;
-@@ -4567,6 +4605,7 @@
-         AUDCLNT_SHAREMODE share;
-         PTR32 fmt_in;
-         HRESULT result;
-+        BOOL sony_windows_audio_mode;
-     } *params32 = args;
-     struct is_format_supported_params params =
-     {
-@@ -4574,6 +4613,7 @@
-         .flow = params32->flow,
-         .share = params32->share,
-         .fmt_in = ULongToPtr(params32->fmt_in),
-+        .sony_windows_audio_mode = params32->sony_windows_audio_mode
-     };
-     pipewire_is_format_supported(&params);
-     params32->result = params.result;
-@@ -4613,12 +4653,14 @@
-         EDataFlow flow;
-         PTR32 fmt;
-         HRESULT result;
-+        BOOL sony_windows_audio_mode;
-     } *params32 = args;
-     struct get_mix_format_params params =
-     {
-         .device = ULongToPtr(params32->device),
-         .flow = params32->flow,
-         .fmt = ULongToPtr(params32->fmt),
-+        .sony_windows_audio_mode = params32->sony_windows_audio_mode
-     };
-     pipewire_get_mix_format(&params);
-     params32->result = params.result;
-@@ -4873,14 +4915,14 @@
+@@ -4873,14 +4901,14 @@ const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
  {
      pipewire_wow64_process_attach,
      pipewire_process_detach,
