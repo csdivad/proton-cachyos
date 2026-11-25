@@ -1,7 +1,16 @@
 diff --git a/dlls/ntdll/unix/signal_x86_64.c b/dlls/ntdll/unix/signal_x86_64.c
 --- a/dlls/ntdll/unix/signal_x86_64.c
 +++ b/dlls/ntdll/unix/signal_x86_64.c
-@@ -2058,11 +2058,47 @@
+@@ -2051,6 +2051,8 @@
+ }
+ 
+ 
++static BOOL use_nascar25_hack;
++
+ /***********************************************************************
+  *           handle_syscall_opcode
+  *
+@@ -2058,11 +2060,47 @@
   */
  static void handle_syscall_opcode( ucontext_t *sigcontext )
  {
@@ -49,15 +58,7 @@ diff --git a/dlls/ntdll/unix/signal_x86_64.c b/dlls/ntdll/unix/signal_x86_64.c
      frame->rip = RIP_sig(sigcontext) + 0xb;
      frame->rcx = RIP_sig(sigcontext);
      frame->eflags = EFL_sig(sigcontext);
-@@ -2862,6 +2898,7 @@
- #if defined(__APPLE__) || defined(__linux__)
- 
- static BOOL use_eos_syscall_hack;
-+static BOOL use_nascar25_hack;
- 
- /**********************************************************************
-  *		sigsys_handler
-@@ -3145,6 +3182,7 @@
+@@ -3145,6 +3183,7 @@
              /* We don't unset the env since child processes also need to inherit the same syscall hack */
              use_eos_syscall_hack = (env = getenv("PROTON_SYSCALL_HACK")) && !strcmp(env, "1");
              if (use_eos_syscall_hack) ERR_(seh)("Using EAC bootstrapper (EOS) syscall workaround!\n");
